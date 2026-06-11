@@ -1,0 +1,8 @@
+numpy>=2.4.4
+scipy>=1.17.1
+scikit-learn>=1.4          # root_mean_squared_error requires >= 1.4
+statsmodels>=0.14.6
+dtaidistance>=2.4.0
+properscoring>=0.1
+pingouin>=0.6.1
+matplotlib>=3.10.9
