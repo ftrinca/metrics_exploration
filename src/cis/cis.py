@@ -1,18 +1,3 @@
-"""CIS (Combined Imputation Score), a gated composite built on the Algorithm
-Ranking cache.
-
-Two tiers, computed per (dataset, pattern, rate, algorithm). The stability
-gate is one ratio, IQR of the reconstruction over IQR of the truth at the
-masked positions; near zero means collapsed and far above one means unstable,
-and either excludes the algorithm from the ranking. Whatever passes is scored
-by compute_cis. The design and its evidence are in the CIS chapter; this
-module is the implementation and produces the figures and numbers it cites.
-
-Needs algo_ranking to have been built and scored. The gate reads the raw
-per-seed data.json, because it needs reconstructed values rather than a metric
-computed from them; everything else reads the cached scores.json.
-"""
-
 import argparse
 import json
 import os
@@ -42,31 +27,13 @@ from core.metric_config import METRIC_DIRECTION
 
 ALGO_NAMES = [name for name, _, _ in ALGORITHMS]
 
-# CIS's four components, one per Part 2 category. See the module docstring
-# The CIS chapter argues each of the four against the other member of its
-# category. COMPONENT_VARIANTS below re-measures every single-metric
-# substitution, so this tuple stays a checked choice rather than an assertion.
+# CIS's four components, one per Part 2 category. COMPONENT_VARIANTS below
+# re-measures every single-metric substitution.
 CIS_METRICS = ("mae", "wd", "dtw", "mi")
 
-# Every component divides by a scale, and all four scales are read off the
-# same reference: Part 1's equal-damage run, where each of eight distortions
-# is solved to config.TARGET_DAMAGE and the resulting metric values say what
-# that amount of damage looks like on each metric's own axis. A component's
-# scale is the mean value its metric takes over those eight distortions,
-# averaged over Part 1's 24 (geometry, rate) conditions.
-#
-# Anchoring on the calibrated reference rather than on the algorithms being
-# scored has two consequences the earlier design did not have. The scales stop
-# depending on the algorithm suite, so adding or removing an algorithm cannot
-# move another algorithm's CIS. And the four components end up with comparable
-# dynamic range, because each one is now measured in units of the same amount
-# of damage: over the 133 gate survivors their interquartile ranges are 0.37,
-# 0.46, 0.43 and 0.39, against 0.32, 0.29, 0.01 and 0.46 under the earlier
-# normalisation, where the temporal component was too flat to affect any
-# ordering.
-#
-# derive_component_scales below recomputes these four numbers from Part 1's
-# cache, so they stay checkable rather than asserted.
+# Each component divides by its scale here, read off Part 1's equal-damage run:
+# the mean value the metric takes over the eight calibrated distortions,
+# averaged over Part 1's conditions. derive_component_scales recomputes them.
 COMPONENT_SCALES = {
     "mae": 0.4964,
     "wd": 0.3338,
@@ -74,23 +41,14 @@ COMPONENT_SCALES = {
     "mi": 0.9400,
 }
 
-# Kept as a module-level name because the substitution sweep scores variants
-# that put a metric in a slot the adopted score does not use, and those need a
-# scale too. Any metric absent from COMPONENT_SCALES falls back to 1.0, which
-# is the z-scored unit the earlier design used throughout.
+# Used by the substitution sweep for metrics the adopted score does not use.
 FALLBACK_SCALE = 1.0
 
-# Gate thresholds, both applied to the same IQR ratio. These were picked by
-# eye from the distribution plotted in cis_gate_distribution.png, as a fixed
-# choice for this project's dataset suite. A different dataset suite may
-# need different values; derive_gate_thresholds below checks how well the data
-# supports them.
+# Gate thresholds, both applied to the IQR ratio. Picked by eye from
+# cis_gate_distribution.png; derive_gate_thresholds checks them against the data.
 FLAT_THRESHOLD = 0.15
 UNSTABLE_THRESHOLD = 3.0
 
-# Standalone top-level folders, siblings of plots/algo_ranking and
-# reports/algo_ranking, since CIS is its own cross-cutting analysis built on
-# Part 2's data rather than part of that experiment's own output tree.
 CIS_PLOT_DIR = os.path.join(SRC, "plots", "cis")
 CIS_REPORT_DIR = os.path.join(SRC, "reports", "cis")
 
@@ -114,6 +72,7 @@ def _load_scores(dataset: str, pattern: str, rate: float) -> dict[str, dict[str,
 
 
 def _iqr(x: np.ndarray) -> float:
+    """Interquartile range."""
     q75, q25 = np.percentile(x, [75, 25])
     return float(q75 - q25)
 
@@ -121,10 +80,9 @@ def _iqr(x: np.ndarray) -> float:
 def stability_ratios(dataset: str, pattern: str, rate: float) -> tuple[dict[str, float], int]:
     """Return ({algo: iqr_ratio}, n_timesteps) for one scenario.
 
-    Stochastic algorithms are averaged over the seeds, matching how score.py
-    averages their metrics; deterministic ones are read from the first seed
-    alone. n_timesteps comes from the cached truth because the datasets are
-    not all the same length and compute_cis divides DTW by it.
+    Stochastic algorithms are averaged over the seeds; deterministic ones are
+    read from the first seed alone. n_timesteps comes from the cached truth
+    because compute_cis divides DTW by it.
     """
     per_seed_iqr: dict[str, list[float]] = {name: [] for name in ALGO_NAMES}
     n_timesteps = None
@@ -150,10 +108,8 @@ def stability_ratios(dataset: str, pattern: str, rate: float) -> tuple[dict[str,
             if name not in built:
                 continue
             if name not in STOCHASTIC_ALGORITHMS and per_seed_iqr[name]:
-                continue  # deterministic: same every seed, only need it once
+                continue
             recon_vals = np.array(built[name])[mask]
-            # The epsilon guards a flat ground-truth segment, where the ratio
-            # is undefined however good the reconstruction is.
             per_seed_iqr[name].append(_iqr(recon_vals) / (true_iqr + 1e-12))
 
     ratios = {name: float(np.mean(per_seed_iqr[name])) for name in ALGO_NAMES if per_seed_iqr[name]}
@@ -164,9 +120,7 @@ def compute_cis(mae: float, wd: float, dtw: float, mi: float, n_timesteps: int) 
     """CIS = (M * D * T * I)^(1/4), in (0, 1), higher is better.
 
     Each component divides by its COMPONENT_SCALES entry, so all four are in
-    units of the same reference damage and a reconstruction at that reference
-    scores about 0.42. DTW is divided by n_timesteps first, because it
-    accumulates one alignment cost per timestep.
+    units of the same reference damage. DTW is divided by n_timesteps first.
     """
     M = np.exp(-mae / COMPONENT_SCALES["mae"])
     D = np.exp(-wd / COMPONENT_SCALES["wd"])
@@ -178,9 +132,8 @@ def compute_cis(mae: float, wd: float, dtw: float, mi: float, n_timesteps: int) 
 def gate_and_score(dataset: str, pattern: str, rate: float) -> dict[str, dict]:
     """Return {algo: {iqr_ratio, passes_gate, cis}} for one scenario.
 
-    CIS is computed for every algorithm whether or not it passes, so the
-    ungated ranking can be compared against the panel separately. Callers
-    filter on passes_gate.
+    CIS is computed whether or not the algorithm passes, so the ungated ranking
+    can be compared against the panel separately. Callers filter on passes_gate.
     """
     ratios, n_timesteps = stability_ratios(dataset, pattern, rate)
     scores = _load_scores(dataset, pattern, rate)
@@ -200,15 +153,11 @@ def collect_all_scenarios(
     patterns: list[str] = PATTERNS,
     rates: list[float] = RATES,
 ) -> tuple[list[dict], dict[tuple, dict], dict[tuple, int]]:
-    """Flatten gate_and_score over every scenario into one row per (scenario,
-    algorithm), each carrying that scenario's eight-metric consensus rank.
-    Everything downstream is built from this list.
+    """Flatten gate_and_score over every scenario into one row per (scenario, algorithm).
 
-    The scores are returned because the gated comparison recomputes the
-    consensus over the surviving algorithms only, and restricting a rank
-    computed over all six is not the same as recomputing it over the subset.
-    The series lengths are returned because the T component divides DTW by
-    them.
+    Each row carries that scenario's eight-metric consensus rank. The scores are
+    returned because the gated comparison recomputes the consensus over the
+    survivors only, and the series lengths because the T component needs them.
     """
     rows = []
     scenario_scores: dict[tuple, dict] = {}
@@ -240,10 +189,8 @@ def collect_all_scenarios(
 def derive_component_scales(conditions: dict[str, dict] | None = None) -> dict:
     """Recompute COMPONENT_SCALES from Part 1's equal-damage cache.
 
-    Each scale is the mean value its metric takes over the eight distortions,
-    averaged over Part 1's conditions, with DTW divided by series length
-    first. Returns {} when that cache is absent, since the adopted constants
-    are hard-coded and this only exists to keep them checkable.
+    Returns {} when that cache is absent, since the adopted constants are
+    hard-coded and this only exists to keep them checkable.
     """
     conditions = load_injector_equal_damage() if conditions is None else conditions
     if not conditions:
@@ -264,15 +211,11 @@ def derive_component_scales(conditions: dict[str, dict] | None = None) -> dict:
 
 
 def derive_gate_thresholds(rows: list[dict], bw: float = 0.15) -> dict:
-    """Look for the adopted thresholds in the data, as a check rather than a
-    derivation: the two constants were picked by eye and this does not feed
-    back into them.
+    """Look for the adopted thresholds in the data, as a check rather than a derivation.
 
-    Exact zeros are dropped and a Gaussian KDE is fit to log10 of the rest. A
-    valley between two peaks marks a boundary between populations, the same
-    idea as Otsu's method. Automatic bandwidth rules resolve only one peak on
-    this much data, so bw is chosen manually; it is stable across roughly
-    0.10 to 0.20.
+    Exact zeros are dropped and a Gaussian KDE is fit to log10 of the rest; a
+    valley between two peaks marks a boundary between populations. `bw` is chosen
+    manually and is stable across roughly 0.10 to 0.20.
     """
     vals = np.array([r["iqr_ratio"] for r in rows if r["iqr_ratio"] > 0])
     log_vals = np.log10(vals)
@@ -293,9 +236,11 @@ def derive_gate_thresholds(rows: list[dict], bw: float = 0.15) -> dict:
 
 
 def excluded_scenario_breakdown(rows: list[dict]) -> dict:
-    """Split the failures in unrankable scenarios into decisive ones, meaning
-    exactly zero or beyond twice the unstable threshold, and marginal ones, so
-    it is visible whether the thresholds cut close calls."""
+    """Split the failures in unrankable scenarios into decisive and marginal ones.
+
+    Decisive means exactly zero or beyond twice the unstable threshold, so it is
+    visible whether the thresholds cut close calls.
+    """
     by_scenario: dict[tuple, list[dict]] = {}
     for r in rows:
         by_scenario.setdefault((r["dataset"], r["pattern"], r["rate"]), []).append(r)
@@ -325,8 +270,10 @@ def excluded_scenario_breakdown(rows: list[dict]) -> dict:
 
 
 def validation_summary(rows: list[dict], scenario_scores: dict[tuple, dict]) -> str:
-    """Spearman correlation between CIS's ranking and the eight-metric
-    consensus, ungated and then over survivors only."""
+    """Spearman correlation between CIS's ranking and the eight-metric consensus.
+
+    Reported ungated over several scopes, then over gate survivors only.
+    """
     lines = ["CIS VALIDATION SUMMARY", "=" * 70, ""]
 
     by_scenario: dict[tuple, list[dict]] = {}
@@ -359,11 +306,8 @@ def validation_summary(rows: list[dict], scenario_scores: dict[tuple, dict]) -> 
     _report("mcar+scattered, all rates (ungated)", ms_scope)
     _report("mcar+scattered, 20pct only (ungated)", ms_low_scope)
 
-    # Gated: survivors-only ranking, per scenario, requires at least 3
-    # survivors. The 8-metric consensus is recomputed from scratch over just
-    # the survivor subset, not filtered from the full 6-algorithm consensus
-    # rank (see collect_all_scenarios' docstring for why that distinction
-    # matters).
+    # the consensus is recomputed from scratch over the survivor subset, not
+    # filtered from the full six-algorithm ranking
     gated_rhos = []
     n_too_few = 0
     for key, scenario_rows in by_scenario.items():
@@ -394,19 +338,14 @@ def validation_summary(rows: list[dict], scenario_scores: dict[tuple, dict]) -> 
     return "\n".join(lines)
 
 
-
-
 # ══════════════════════════════════════════════════════════════════════════
-# Supporting analyses
-#
-# Each of these answers a question the write-up would otherwise have to
-# assert. They are separated from the gate and the score above because none
-# of them feeds into a CIS value; they only check that the design choices
-# behind it still hold against the current metric panel and the current
-# Injector run.
+# Supporting analyses. None of these feeds into a CIS value; they check that
+# the design choices behind it hold against the current metric panel and the
+# current Injector run.
 # ══════════════════════════════════════════════════════════════════════════
 
 def _metric_rank(scores: dict[str, dict[str, float]], metric: str, subjects: list[str]) -> dict[str, float]:
+    """Rank `subjects` on one metric, in that metric's own direction."""
     return rank_algorithms({s: scores[metric][s] for s in subjects},
                            direction=METRIC_DIRECTION[metric])
 
@@ -418,13 +357,9 @@ def within_category_agreement(
 ) -> dict[str, dict]:
     """Mean Spearman correlation between the two metrics inside each category.
 
-    CIS keeps one metric per category. That is free of consequence only where
-    the two members rank algorithms the same way; where they do not, keeping
-    one is choosing a side, and the write-up has to argue that choice. This
-    measures which case each category is in instead of assuming.
-
-    Reported for all scenarios and split by geometry, since Part 2 shows the
-    two groups behave differently enough that a pooled number hides it.
+    CIS keeps one metric per category, which is free of consequence only where
+    the two members rank algorithms the same way. Reported for all scenarios and
+    split by geometry.
     """
     out = {}
     for category, metrics in categories.items():
@@ -460,10 +395,8 @@ def within_category_agreement(
 def component_values(scores: dict, subject: str, n_timesteps: int) -> dict[str, float]:
     """The four normalized CIS components for one reconstruction.
 
-    `subject` is an algorithm name when the scores come from Part 2 and a
-    distortion name when they come from Part 1, since the two caches share the
-    {metric: {name: value}} shape and CIS does not care what produced the
-    reconstruction it is scoring.
+    `subject` is an algorithm name for Part 2's scores and a distortion name for
+    Part 1's, since the two caches share the {metric: {name: value}} shape.
     """
     return {
         "M": float(np.exp(-scores["mae"][subject] / COMPONENT_SCALES["mae"])),
@@ -474,12 +407,10 @@ def component_values(scores: dict, subject: str, n_timesteps: int) -> dict[str, 
 
 
 def component_spread(per_subject: dict[str, dict[str, float]]) -> dict[str, dict]:
-    """Range and relative range of each component across whatever it was
-    computed over.
+    """Range and relative range of each component across whatever it was computed over.
 
-    A component whose relative spread is far below the others is close to
-    constant wherever it is applied, which means it contributes almost nothing
-    to CIS's ordering however its value is interpreted.
+    A component whose relative spread is far below the others contributes almost
+    nothing to CIS's ordering.
     """
     out = {}
     for component in ("M", "D", "T", "I"):
@@ -493,13 +424,10 @@ def component_spread(per_subject: dict[str, dict[str, float]]) -> dict[str, dict
 def variant_cis(scores: dict, subject: str, n_timesteps: int, slots: tuple[str, ...]) -> float:
     """CIS with the four component metrics replaced by `slots`.
 
-    Each metric divides by its COMPONENT_SCALES entry, falling back to
-    FALLBACK_SCALE for metrics the adopted score does not use. DTW is divided
-    by series length first; R squared enters as its distance from a perfect
-    1.0, since it is the only candidate whose best value is not at zero.
-    Passing fewer than four slots gives the geometric mean over that many
-    components, which is how the "what does this component add" rows are
-    produced.
+    Metrics absent from COMPONENT_SCALES fall back to FALLBACK_SCALE. DTW is
+    divided by series length first, and R squared enters as its distance from
+    1.0. Passing fewer than four slots gives the geometric mean over that many
+    components.
     """
     parts = []
     for metric in slots:
@@ -523,12 +451,10 @@ def variant_agreement(
     slots: tuple[str, ...],
     min_survivors: int = 3,
 ) -> dict:
-    """Agreement between a CIS variant's survivor ranking and the panel
-    consensus recomputed over the same survivors.
+    """Agreement between a CIS variant's survivor ranking and the panel consensus.
 
-    Scenarios with fewer than `min_survivors` are skipped rather than scored,
-    because a rank correlation over two points is either +1 or -1 whatever the
-    values are and would move the mean without carrying information.
+    Scenarios with fewer than `min_survivors` are skipped, because a rank
+    correlation over two points is either +1 or -1 whatever the values are.
     """
     by_scenario: dict[tuple, list[dict]] = {}
     for r in rows:
@@ -557,11 +483,10 @@ def variant_agreement(
 
 
 def load_injector_equal_damage() -> dict[str, dict]:
-    """Read Part 1's equal-damage cache as {"pattern/rate": {scores, iqr_ratio,
-    n_timesteps}}, or {} when that experiment has not been run.
+    """Read Part 1's equal-damage cache, or {} when that experiment has not been run.
 
-    The IQR ratio is recomputed here rather than read, since Part 1 has no
-    reason to store it; the gate is CIS's own instrument.
+    Returns {"pattern/rate": {scores, iqr_ratio, n_timesteps}}. The IQR ratio is
+    recomputed here, since the gate is CIS's own instrument.
     """
     out = {}
     for pattern in injector_config.PATTERNS:
@@ -589,8 +514,7 @@ def load_injector_equal_damage() -> dict[str, dict]:
 
 
 def load_injector_sweep() -> dict[str, dict]:
-    """Read Part 1's damage sweep as {distortion: {scores, iqr_ratio,
-    levels, n_timesteps}}, or {} when that experiment has not been run."""
+    """Read Part 1's damage sweep, or {} when that experiment has not been run."""
     out = {}
     for distortion in injector_config.DISTORTION_NAMES:
         folder = injector_config.sweep_dir(distortion)
@@ -621,9 +545,7 @@ def equal_damage_response(conditions: dict[str, dict]) -> dict:
 
     Part 1 solves every distortion to the same mean absolute error, so the M
     component is pinned and whatever variation is left in CIS is variation in
-    the kind of damage rather than its size. How far from flat CIS comes out
-    here is how much kind-sensitivity the composite has kept, and which
-    distortions sit at the top is where it is least sensitive.
+    the kind of damage rather than its size.
     """
     per_condition, per_distortion = {}, {}
     for condition, payload in conditions.items():
@@ -646,9 +568,8 @@ def equal_damage_response(conditions: dict[str, dict]) -> dict:
 def damage_sweep_response(sweep: dict[str, dict]) -> dict:
     """CIS at each of Part 1's damage levels, per distortion.
 
-    A composite that is not monotone in damage for some kind of damage would
-    report a more damaged reconstruction as the better one, so this is a
-    correctness check rather than a descriptive statistic.
+    A composite that is not monotone in damage would report a more damaged
+    reconstruction as the better one, so this is a correctness check.
     """
     out = {}
     for distortion, payload in sweep.items():
@@ -666,8 +587,7 @@ def damage_sweep_response(sweep: dict[str, dict]) -> dict:
 
 
 def gate_outcome_table(rows: list[dict]) -> dict[str, dict]:
-    """{algorithm: {pattern: {passed, total, median_ratio}}}, so the gate's
-    effect can be read per algorithm rather than only in aggregate."""
+    """{algorithm: {pattern: {passed, total, median_ratio}}}."""
     out = {}
     for algo in ALGO_NAMES:
         out[algo] = {}
@@ -686,10 +606,9 @@ def gate_outcome_table(rows: list[dict]) -> dict[str, dict]:
 def gate_and_mi_overlap(rows: list[dict], scenario_scores: dict[tuple, dict]) -> dict:
     """How much of the I component's job the gate has already done.
 
-    MI is exactly 0 for a constant reconstruction, which is also what the flat
-    check catches, so the two could be doing the same work twice. They are not
-    redundant if MI still varies among the reconstructions the gate lets
-    through, which is what the correlation below measures.
+    MI is exactly 0 for a constant reconstruction, which the flat check also
+    catches. The two are not redundant if MI still varies among the survivors,
+    which the correlation below measures.
     """
     def mi_of(r):
         return scenario_scores[(r["dataset"], r["pattern"], r["rate"])]["mi"][r["algo"]]
@@ -818,6 +737,7 @@ def supporting_experiments(rows, scenario_scores, n_timesteps) -> str:
 
 
 def _scatter_ratio(ax, rows: list[dict], field: str) -> None:
+    """Jittered scatter of one field, grouped by pattern and coloured by algorithm."""
     rng = np.random.default_rng(0)
     for pi, pattern in enumerate(PATTERNS):
         for ai, algo in enumerate(ALGO_NAMES):
@@ -836,13 +756,10 @@ def _scatter_ratio(ax, rows: list[dict], field: str) -> None:
 
 
 def plot_gate_distribution(rows: list[dict], output_path: str) -> None:
-    """The IQR ratio for every scenario and algorithm, with both thresholds
-    marked."""
+    """The IQR ratio for every scenario and algorithm, with both thresholds marked."""
     fig, ax = plt.subplots(figsize=(8, 6))
 
     _scatter_ratio(ax, rows, "iqr_ratio")
-    # The symlog scale's negative half exists only to render the exact-zero
-    # points, so clip it rather than showing a full empty decade.
     ax.set_ylim(bottom=-0.02)
     ax.axhline(FLAT_THRESHOLD, color="gray", linestyle="--", linewidth=1)
     ax.text(0.05, FLAT_THRESHOLD, f"flat threshold ({FLAT_THRESHOLD})",
@@ -914,10 +831,8 @@ def plot_cis_vs_consensus(rows: list[dict], output_path: str) -> None:
 def plot_equal_damage_response(equal_damage: dict, output_path: str) -> None:
     """CIS and its four components across Part 1's eight calibrated distortions.
 
-    Left panel: CIS per distortion, one marker per condition, so the ordering
-    can be seen to hold across geometries rather than only on average. Right
-    panel: the four components, which is where the left panel's ordering comes
-    from and where a component that barely moves shows up as a flat line.
+    Left panel: CIS per distortion, one marker per condition. Right panel: the
+    four components, where a component that barely moves shows up as a flat line.
     """
     per_condition = equal_damage["per_condition"]
     mean_cis = equal_damage["mean_per_distortion"]
@@ -966,6 +881,7 @@ def plot_equal_damage_response(equal_damage: dict, output_path: str) -> None:
 
 
 def main(datasets: list[str], patterns: list[str], rates: list[float]) -> None:
+    """Gate and score every scenario, then write the reports and figures."""
     rows, scenario_scores, n_timesteps = collect_all_scenarios(datasets, patterns, rates)
 
     os.makedirs(CIS_REPORT_DIR, exist_ok=True)

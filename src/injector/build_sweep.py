@@ -1,14 +1,3 @@
-"""Build phase of the damage sweep.
-
-For one fixed missingness scenario (config.SWEEP_PATTERN, SWEEP_RATE), build
-each distortion at every level in config.DAMAGE_LEVELS, solving the severity
-separately at each level so all eight sweeps share one damage axis.
-
-Calibration is inline here rather than in its own cached stage, because these
-solved severities are an implementation detail of the sweep rather than a
-reported result, and they are stored alongside the data in the same file.
-"""
-
 import argparse
 import os
 import sys
@@ -32,6 +21,11 @@ from injector.config import (
 
 
 def build_one(name, y_true, mask, force=False):
+    """Build one distortion at every level of config.DAMAGE_LEVELS.
+
+    The severity is solved separately at each level, so all eight distortions
+    share one damage axis. Severities are stored alongside the data.
+    """
     path = os.path.join(sweep_dir(name), "data.json")
     if not force and os.path.exists(path):
         print(f"   SKIP (already built): {path}")
@@ -72,6 +66,7 @@ def build_one(name, y_true, mask, force=False):
 
 
 def build_sweep_phase(names, force=False):
+    """Build the damage sweep for every distortion, on one fixed missingness scenario."""
     print("Loading ground truth")
     y_true = load_ground_truth()
     print(f"  shape={y_true.shape}")

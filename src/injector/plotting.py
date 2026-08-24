@@ -1,7 +1,3 @@
-"""Figures for the Injector: metric x distortion heatmaps, and damage sweeps
-with all eight distortions on one shared axis.
-"""
-
 from __future__ import annotations
 
 import os
@@ -37,6 +33,7 @@ DISTORTION_LABEL = {d: d for d in DISTORTION_NAMES}
 
 
 def _ordered_metrics():
+    """(category, metric) pairs in report order."""
     out = []
     for cat in INJECTOR_CATEGORIES:
         for m in CATEGORIES[cat]:
@@ -45,15 +42,10 @@ def _ordered_metrics():
 
 
 def plot_heatmap(zscores, title, output_path, spreads=None):
-    """Draw a metric x distortion heatmap of signed z-scores, rows grouped by
-    category.
+    """Draw a metric x distortion heatmap of signed z-scores, rows grouped by category.
 
-    Rows marked flat in `spreads` are drawn in grey and labelled "(flat)"
-    instead of being coloured. The z-score divides by the metric's own standard
-    deviation across the eight distortions, so for a metric pinned by the
-    calibration that divisor is solver residual rather than reaction, and
-    colouring the row would present a structured response where the underlying
-    values are effectively identical.
+    Rows marked flat in `spreads` are drawn grey and labelled "(flat)" rather
+    than coloured, since their z-scores divide by solver residual.
     """
     rows = _ordered_metrics()
     data = np.array([[zscores[m].get(d, 0.0) for d in DISTORTION_NAMES] for _, m in rows])
@@ -101,7 +93,7 @@ def plot_sweep(levels, series_by_distortion, category, output_path):
     """Draw one panel per metric in a category, one line per distortion.
 
     series_by_distortion[distortion][metric] is the list of raw values, one per
-    damage level. The shared x-axis is what makes the eight comparable.
+    damage level.
     """
     metrics = CATEGORIES[category]
     n = len(metrics)
@@ -151,18 +143,11 @@ CATEGORY_COLOR = {
 
 
 def plot_metric_overview(z_by_condition, output_path, spreads_by_condition=None):
-    """Draw one small heatmap per metric, all of them on a single page.
+    """Draw one small heatmap per metric, all on a single page.
 
     z_by_condition maps (pattern, bucket) -> {metric: {distortion: z}}. Inside
-    each panel the rows are the (geometry, rate bucket) conditions and the
-    columns are the eight distortions, so a panel whose colour is constant down
-    a column is a metric that responds to that distortion the same way however
-    the data went missing.
-
-    One colour scale is shared by every panel, so panels can be compared with
-    each other rather than only read one at a time. A metric flat in every
-    condition is drawn grey and marked "(flat)" instead of having its solver
-    residual stretched across the full scale.
+    each panel the rows are the conditions and the columns the eight
+    distortions, on one colour scale shared by every panel.
 
     Raises ValueError when z_by_condition holds none of CONDITION_ORDER.
     """
@@ -228,13 +213,7 @@ def plot_metric_overview(z_by_condition, output_path, spreads_by_condition=None)
 
 
 def plot_condition_grid(z_by_condition, output_path, spreads_by_condition=None):
-    """Draw the full metric x distortion heatmaps, one panel per condition.
-
-    The companion to plot_metric_overview, read the other way round: one panel
-    per (geometry, rate bucket) rather than one per metric, so the question is
-    whether the whole picture changes with the missingness rather than whether
-    one metric does.
-    """
+    """Draw the full metric x distortion heatmaps, one panel per condition."""
     metrics = _ordered_metrics()
     conditions = [c for c in CONDITION_ORDER if c in z_by_condition]
 

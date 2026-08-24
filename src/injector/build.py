@@ -1,14 +1,3 @@
-"""Build phase of the equal-damage experiment.
-
-For every (pattern, rate): build the mask, read the severities solved by
-calibrate.py, apply all eight distortions at those severities, and cache
-{y_true, mask, **distortions} under time_series/injector/.
-
-calibrate.py must have run for the same (pattern, rate) first; solving the
-severities is kept in its own cached stage so the calibration table can be
-inspected and reported without rebuilding anything.
-"""
-
 import argparse
 import json
 import os
@@ -33,11 +22,13 @@ from injector.config import (
 
 
 def load_ground_truth() -> np.ndarray:
+    """Load and normalise the configured dataset."""
     y_true = real_world_ground_truth.generate(DATASET, N_SERIES)
     return normalization.apply_normalization(y_true, NORMALIZATION)
 
 
 def _load_calibration(pattern: str, rate: float) -> dict:
+    """Read the severities calibrate.py solved for one (pattern, rate)."""
     path = os.path.join(rate_dir(pattern, rate), "calibration.json")
     if not os.path.exists(path):
         raise FileNotFoundError(
@@ -49,6 +40,7 @@ def _load_calibration(pattern: str, rate: float) -> dict:
 
 
 def build_one(pattern: str, rate: float, y_true: np.ndarray, force: bool = False) -> None:
+    """Apply all eight distortions at their solved severities and cache the result."""
     data_path = os.path.join(rate_dir(pattern, rate), "data.json")
     if not force and os.path.exists(data_path):
         print(f"   SKIP (already built): {data_path}")
@@ -62,7 +54,6 @@ def build_one(pattern: str, rate: float, y_true: np.ndarray, force: bool = False
         "mask": dataset_io.bool_matrix_to_mask(mask),
     }
     for name in DISTORTION_NAMES:
-        # JSON turns the integer series keys into strings on the way out
         severities = {int(k): v for k, v in calib[name]["severity"].items()}
         distorted = D.apply_one(y_true, mask, name, severities, SEED)
         json_out[name] = dataset_io.matrix_to_lists(distorted)
@@ -72,6 +63,7 @@ def build_one(pattern: str, rate: float, y_true: np.ndarray, force: bool = False
 
 
 def build_phase(patterns, rates, force=False):
+    """Build every (pattern, rate) of the equal-damage experiment."""
     print(f"Loading ground truth: {DATASET} ({N_SERIES} series)")
     y_true = load_ground_truth()
     print(f"  shape={y_true.shape}  nan={np.isnan(y_true).sum()}\n")

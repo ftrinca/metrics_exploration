@@ -1,6 +1,3 @@
-"""Scoring a dict of reconstructions on every metric, with the masking and
-applicability rules both experiments share."""
-
 import core.metrics as metrics
 import numpy as np
 
@@ -8,8 +5,7 @@ from core.metric_config import FULL_SERIES_METRICS, METRIC_LIST, PROBABILISTIC_M
 
 
 def to_scalar(metric_name: str, value) -> float:
-    """Reduce a metric's return value to one float. `ba` returns a tuple and is
-    reduced to |mean_diff|, so less systematic bias ranks better."""
+    """Reduce a metric's return value to one float. `ba` is reduced to |mean_diff|."""
     if metric_name == "ba":
         mean_diff, _ = value
         return abs(mean_diff)
@@ -17,18 +13,15 @@ def to_scalar(metric_name: str, value) -> float:
 
 
 def is_probabilistic(y_true: np.ndarray, y_pred: np.ndarray) -> bool:
-    """True when y_pred carries an extra samples dimension, meaning the
-    algorithm produced a distribution per point rather than a point
-    estimate."""
+    """Whether y_pred carries an extra samples dimension, i.e. a distribution per point."""
     return y_pred.ndim == y_true.ndim + 1
 
 
 def metric_applies(metric_name: str, y_true: np.ndarray, y_pred: np.ndarray) -> bool:
-    """Whether `metric_name` is defined for this output shape.
+    """Whether `metric_name` is scored for this output shape.
 
-    The probabilistic metrics need posterior samples and the full-series
-    metrics need a point estimate, so the two sets exclude each other.
-    Everything else applies unconditionally.
+    The full-series metrics need a point estimate and the probabilistic ones
+    are scored only on posterior samples, so the two sets exclude each other.
     """
     probabilistic = is_probabilistic(y_true, y_pred)
     if metric_name in PROBABILISTIC_METRICS:
@@ -47,10 +40,9 @@ def _apply_metric(
 ):
     """Evaluate one metric, returning None where it does not apply.
 
-    With a mask, evaluation is restricted to the True positions, except for
-    the full-series metrics, which always receive the complete series. A 2-D
-    (n_series, n_timesteps) input is evaluated per series and averaged, which
-    is why RMSE here is not the pooled RMSE ImputeGAP reports.
+    With a mask, evaluation is restricted to the True positions, except for the
+    full-series metrics. A 2-D (n_series, n_timesteps) input is evaluated per
+    series and averaged, which is why RMSE here is not ImputeGAP's pooled RMSE.
     """
     if not metric_applies(metric_name, y_true, y_pred):
         return None
@@ -91,13 +83,12 @@ def compute_all_scores(
     mask: np.ndarray | None = None,
     metric_names: list[str] | None = None,
 ) -> dict[str, dict[str, float | None]]:
-    """Return {metric: {name: score or None}}, None meaning the metric does not
-    apply to that output or raised.
+    """Score every reconstruction on every metric.
 
-    `metric_names` restricts the pass to a subset of METRIC_LIST, keeping
-    METRIC_LIST's order, so a cached score file missing one metric can be
-    topped up without paying for DTW again. It is not called `metrics` because
-    that name is bound to the imported module.
+    Returns {metric: {name: score or None}}, None meaning the metric does not
+    apply to that output or raised. `metric_names` restricts the pass to a
+    subset of METRIC_LIST, so a cached score file missing one metric can be
+    topped up without paying for DTW again.
     """
     wanted = (METRIC_LIST if metric_names is None
               else [m for m in METRIC_LIST if m in set(metric_names)])
@@ -118,6 +109,5 @@ def compute_all_scores(
 
 
 def applicable_metrics(scores: dict[str, dict[str, float | None]]) -> list[str]:
-    """The metrics with at least one non-None score, in METRIC_LIST order, so a
-    report can leave out metrics that applied to nothing."""
+    """The metrics with at least one non-None score, in METRIC_LIST order."""
     return [m for m in METRIC_LIST if any(v is not None for v in scores[m].values())]

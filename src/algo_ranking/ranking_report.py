@@ -1,8 +1,3 @@
-"""Ranking analysis for the Algorithm Ranking part: per-metric ranks,
-per-category consensus, global consensus, and Spearman agreement between
-metrics.
-"""
-
 from __future__ import annotations
 
 import math
@@ -20,8 +15,7 @@ from algo_ranking.config import ALGO_CATEGORIES, ALGO_METRICS, label
 def build_rank_matrix(
     value_table: dict[str, dict[str, float | None]],
 ) -> dict[str, dict[str, float]]:
-    """{metric: {algo: rank}}, 1 = best. Tied algorithms share one possibly
-    fractional average rank, so these values are not all integers."""
+    """{metric: {algo: rank}}, 1 = best. Tied algorithms share one average rank."""
     return {
         metric: rank_algorithms(value_table[metric], METRIC_DIRECTION[metric])
         for metric in ALGO_METRICS
@@ -31,9 +25,7 @@ def build_rank_matrix(
 def category_consensus(
     rank_matrix: dict[str, dict[str, float]],
 ) -> dict[str, dict[str, float]]:
-    """{category: {algo: mean rank across that category's metrics}}, which is
-    the per-category property profile: how good an algorithm is at what one
-    category measures, independent of how it does elsewhere."""
+    """{category: {algo: mean rank across that category's metrics}}."""
     algos = list(next(iter(rank_matrix.values())).keys())
     out: dict[str, dict[str, float]] = {}
     for category, metrics in ALGO_CATEGORIES.items():
@@ -45,12 +37,7 @@ def category_consensus(
 
 
 def global_consensus(cat_consensus: dict[str, dict[str, float]]) -> dict[str, float]:
-    """{algo: mean rank across the category consensus scores}.
-
-    Equal to averaging all 8 metrics directly because the categories hold two
-    metrics each, but computed from the category scores so that the two numbers
-    cannot disagree with the profile shown beside them.
-    """
+    """{algo: mean rank across the category consensus scores}."""
     algos = list(next(iter(cat_consensus.values())).keys())
     return {
         algo: float(np.mean([cat_consensus[c][algo] for c in ALGO_CATEGORIES]))
@@ -59,6 +46,7 @@ def global_consensus(cat_consensus: dict[str, dict[str, float]]) -> dict[str, fl
 
 
 def _spearman_matrix(rank_matrix: dict[str, dict[str, float]], algos: list[str]) -> np.ndarray:
+    """Pairwise Spearman correlation between the metrics' rankings."""
     metrics = ALGO_METRICS
     rank_array = np.array([[rank_matrix[m][a] for a in algos] for m in metrics], dtype=float)
     n = len(metrics)
@@ -75,13 +63,7 @@ def _fmt_comp_rank(r: int) -> str:
 
 
 def _positions_with_ties(ordered: list[tuple[str, float]]) -> list[tuple[str, float, int]]:
-    """Turn (algo, score) pairs sorted ascending into (algo, score, position)
-    triples under competition ranking, so a group of k tied algorithms all show
-    one position and the next distinct score resumes k later.
-
-    This is the leaderboard convention a text listing wants, as opposed to the
-    average rank build_rank_matrix uses for the numbers.
-    """
+    """Turn ascending (algo, score) pairs into (algo, score, position) under competition ranking."""
     positions = []
     i, n = 0, len(ordered)
     while i < n:
@@ -104,10 +86,12 @@ def write_ranking_report(
     value_table: dict[str, dict[str, float | None]],
     output_dir: str,
 ) -> None:
-    """Write one scenario's ranking summary into output_dir, holding the
-    per-metric table grouped by category, the per-category consensus profile,
-    the global consensus, the profile spread, and the Spearman agreement matrix.
-    Creates output_dir if it does not exist."""
+    """Write one scenario's ranking summary into output_dir, creating it if needed.
+
+    Holds the per-metric table grouped by category, the per-category consensus
+    profile, the global consensus, the profile spread and the Spearman agreement
+    matrix.
+    """
     os.makedirs(output_dir, exist_ok=True)
     algos = list(next(iter(rank_matrix.values())).keys())
     n_algos = len(algos)
@@ -172,10 +156,6 @@ def write_ranking_report(
     for algo, score, pos in _positions_with_ties(glob_ordered):
         lines.append(f"  {pos}. {algo}  (mean rank: {score:.2f})")
 
-    # Spread separates a specialist from a generalist: an algorithm tied with
-    # others on every metric of every category gets exactly 0.00, which only
-    # holds because the ranks feeding it are average ranks rather than
-    # sequential tie-breaks.
     lines += [
         "",
         "PROFILE SPREAD  (std of the 4 category-consensus scores per algorithm)",

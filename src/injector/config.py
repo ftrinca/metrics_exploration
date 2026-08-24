@@ -1,19 +1,11 @@
-"""Experiment design for the Injector: dataset, missingness grid, damage
-targets, distortion metadata and cache paths.
-
-Every distortion is applied at a severity solved so that all eight cause the
-same damage, defined as mean(|y_hat - y|) at the masked positions divided by
-sigma, the standard deviation of the true values in that series' missing
-block. Holding damage constant means any variation left in a metric is about
-the kind of damage rather than its size.
-"""
-
 import os
 
+# Dataset
 DATASET = "airq"
 N_SERIES = 10
-NORMALIZATION = "none"  # airq ships already z-scored (mean~0, std~1 per series)
+NORMALIZATION = "none"  # airq ships already z-scored
 
+# Missingness grid
 PATTERNS = ["mcar", "scattered", "blackout"]
 RATES = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
 
@@ -23,43 +15,17 @@ RANGE_BUCKETS = {
     "high":   [0.7, 0.8],
 }
 
-# The damage every distortion is solved to, in units of sigma. It has to sit
-# under the ceiling of the most bounded distortion, because smoothing cannot
-# exceed E|y - mu| ~ 0.8 sigma however wide the window and reordering cannot
-# exceed E|y_i - y_j| ~ 1.13 sigma even at a full permutation. A target above
-# roughly 0.7 would be unreachable for smoothing, so it is kept well below
-# that and every solve reports whether it actually reached (see calibrate.py).
+# Damage targets, in units of sigma
 TARGET_DAMAGE = 0.5
-
-# Solver tolerance in the same sigma units: a solve counts as reached when
-# |achieved - target| <= this.
-#
-# The binding constraint is reorder, whose number of moved positions is an
-# integer, so its damage can only move in steps of roughly |y_i - y_j| / n and
-# a single step can be around 0.01 sigma. Every other distortion lands orders
-# of magnitude inside this, and tightening it would only make reorder report
-# misses it cannot avoid.
-DAMAGE_TOLERANCE = 0.01
-
-# Sweeping damage rather than each distortion's own parameter gives all eight
-# sweeps one shared x-axis, so a single plot can show which distortion a given
-# metric is blind to.
+DAMAGE_TOLERANCE = 0.01     # a solve counts as reached within this of the target
 DAMAGE_LEVELS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
 
-# Fixed scenario for the sweep. Blackout gives one contiguous block, so a
-# distortion acts on real structure rather than on isolated points, and 40% of
-# the timesteps leaves room for the widest smoothing window and the longest lag
-# the solver may pick.
+# Fixed scenario for the damage sweep
 SWEEP_PATTERN = "blackout"
 SWEEP_RATE = 0.4
 
-# Per distortion: the property it disturbs, its severity knob, and the
-# properties it leaves EXACTLY intact. The invariants are not commentary,
-# because invariance.py turns each one into an assertion about specific metrics
-# and the aggregate report prints a pass/fail table. A failure means either the
-# distortion is not doing what it claims or the metric implementation is wrong.
-#
-# Invariant vocabulary:
+# Per distortion: the property it disturbs, its severity knob, and the properties
+# it leaves exactly intact. invariance.py turns each invariant into an assertion.
 #   "multiset"  every true value still appears exactly once in the output
 #   "mean"      the mean of the reconstruction equals the mean of the truth
 #   "affine"    the output is a positive-slope affine transform of the truth
@@ -93,15 +59,11 @@ DISTORTIONS = {
 
 DISTORTION_NAMES = list(DISTORTIONS.keys())
 
-# Fraction of gap positions that receive a spike. Held fixed so that the solver
-# has one knob (magnitude) and the "rare but large" character of the distortion
-# survives at every damage level.
-SPIKE_RATE = 0.05
+SPIKE_RATE = 0.05   # fraction of gap positions that receive a spike, held fixed
 
 SEED = 42
 
-# Used only to group rows in figures and reports; no claim is attached to the
-# grouping here.
+# Row grouping for figures and reports
 INJECTOR_CATEGORIES = [
     "Pointwise Error",
     "Distributional",
@@ -109,6 +71,7 @@ INJECTOR_CATEGORIES = [
     "Statistical Agreement",
 ]
 
+# Output paths
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _SRC = os.path.dirname(_HERE)
 

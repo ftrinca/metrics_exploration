@@ -1,12 +1,3 @@
-"""Algorithm Ranking aggregate phase: mean-aggregate the cached scores of each
-range bucket, rank the algorithms per metric, and write the heatmap and text
-report for every (dataset, pattern, range).
-
-Usage:
-  python algo_ranking/aggregate.py
-  python algo_ranking/aggregate.py --datasets climate
-"""
-
 import argparse
 import json
 import os
@@ -33,13 +24,10 @@ def aggregate_bucket(
     raw_scores: dict[float, dict[str, dict[str, float | None]]],
     rates_in_bucket: list[float],
 ) -> dict[str, dict[str, float | None]]:
-    """Mean over rates_in_bucket, per (metric, algorithm). None values are left
-    out of the mean, and a bucket where every value is None is itself None.
+    """Mean over the rates in one bucket, per (metric, algorithm).
 
-    The algorithm list is the union of every algorithm present at any rate in
-    the bucket, for the same reason as score._average_scores: an algorithm
-    missing at one rate, say from a one-off subprocess failure during the build,
-    should not drop out of a bucket where it scored at the other rates.
+    None values are left out of the mean, and a bucket where every value is None
+    is itself None. The algorithm list is the union over the bucket's rates.
     """
     present: set[str] = set()
     for r in rates_in_bucket:
@@ -61,14 +49,10 @@ def aggregate_bucket(
 
 
 def aggregate_phase(datasets: list[str], patterns: list[str]) -> None:
-    """Aggregate and write the heatmap and report for every (dataset, pattern,
-    range). Requires build.py to have produced every rate in config.RATES for
-    each (dataset, pattern).
+    """Write the heatmap and report for every (dataset, pattern, range).
 
-    Scoring is ensured rather than assumed, so an unscored scenario is scored
-    and a cache predating a change to config.ALGO_CATEGORIES is topped up with
-    only the newly selected metrics. Changing the metric set is therefore an
-    aggregate run rather than a re-score.
+    Scoring is ensured rather than assumed, so an unscored scenario is scored and
+    a cache predating a change to config.ALGO_CATEGORIES is topped up.
     """
     for dataset in datasets:
         print(f"=== dataset: {dataset} " + "=" * 50)

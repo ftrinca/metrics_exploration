@@ -1,13 +1,3 @@
-"""Solve each distortion's severity so that all eight cause the same damage.
-
-Every distortion is solved per series to a target mean absolute error at the
-masked positions, expressed in units of that series' own sigma. Targets that
-cannot be reached are reported rather than silently clipped, because a target
-set above one distortion's ceiling would quietly become "as damaged as this
-distortion can be" for some of the eight and not for others, which is the
-confound the equalisation exists to remove.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -33,6 +23,7 @@ MAX_EXPAND_STEPS = 24
 
 
 def _damage_at(name, y_col, idx, severity, seed):
+    """Damage caused by one distortion at one severity."""
     vals = D.FUNCTIONS[name](y_col, idx, severity, seed)
     return D.damage(y_col, idx, vals)
 
@@ -40,17 +31,13 @@ def _damage_at(name, y_col, idx, severity, seed):
 def solve_series(name, y_col, idx, seed, target=TARGET_DAMAGE):
     """Solve one distortion's severity for one series.
 
-    Returns (severity, achieved_damage, reached), where reached is True when
-    the achieved damage is within config.DAMAGE_TOLERANCE of the target.
+    Returns (severity, achieved_damage, reached), where reached is True when the
+    achieved damage is within config.DAMAGE_TOLERANCE of the target. A target
+    above the distortion's ceiling is reported as not reached, never clipped.
     """
     spec = D.SEVERITY_SPEC[name]
 
     if spec["kind"] == "scan":
-        # Damage is continuous in the parameter but not monotone, so bisection
-        # alone would land on whichever root it happened to bracket. Walk the
-        # scan points, take the first interval that straddles the target, and
-        # bisect inside it. With nothing straddling, fall back to the closest
-        # point visited and report it as not reached rather than pretending.
         pts = list(spec["scan"](y_col, idx))
         prev_x = prev_d = None
         best = None
@@ -81,20 +68,16 @@ def solve_series(name, y_col, idx, seed, target=TARGET_DAMAGE):
     lo, hi = spec["lo"], spec["hi"]
     d_hi = _damage_at(name, y_col, idx, hi, seed)
 
-    # Expand the upper bracket when the distortion has more headroom than the
-    # default cap suggests. A bounded distortion (reorder is capped at a full
-    # permutation, smoothing at the series mean) simply stops rising, so the
-    # loop gives up rather than running away.
     steps = 0
     while d_hi < target and steps < MAX_EXPAND_STEPS:
         prev = d_hi
         hi *= 2.0
         d_hi = _damage_at(name, y_col, idx, hi, seed)
         steps += 1
-        if d_hi <= prev + 1e-12:       # saturated: more severity buys nothing
+        if d_hi <= prev + 1e-12:
             break
 
-    if d_hi < target:                   # ceiling below the target
+    if d_hi < target:
         return hi, d_hi, False
 
     for _ in range(MAX_BISECT_STEPS):
@@ -117,8 +100,7 @@ def solve_scenario(y_true, mask, seed=SEED, target=TARGET_DAMAGE, names=None):
 
     Returns {distortion: {"severity": {series_idx: value},
                           "achieved": {series_idx: damage},
-                          "reached":  {series_idx: bool}}}
-    with integer series indices, which become strings once written to JSON.
+                          "reached":  {series_idx: bool}}}.
     Series whose missing block is flat are absent from all three maps.
     """
     names = names or DISTORTION_NAMES
@@ -131,8 +113,6 @@ def solve_scenario(y_true, mask, seed=SEED, target=TARGET_DAMAGE, names=None):
                 continue
             y_col = y_true[:, series_idx]
             if D.gap_sigma(y_col, idx) <= 0.0:
-                # A flat block has no sigma to scale against, so every severity
-                # is meaningless here.
                 continue
             s, a, r = solve_series(name, y_col, idx, seed + 1000 + series_idx, target)
             sev[series_idx], ach[series_idx], ok[series_idx] = float(s), float(a), bool(r)
@@ -141,8 +121,7 @@ def solve_scenario(y_true, mask, seed=SEED, target=TARGET_DAMAGE, names=None):
 
 
 def calibration_table(calib, target=TARGET_DAMAGE):
-    """Render one line per distortion: mean severity, mean achieved damage,
-    spread, and how many series reached the target."""
+    """Render one line per distortion: mean severity, mean achieved damage, spread, reached count."""
     lines = [
         f"CALIBRATION  (target damage = {target:.3f} sigma, "
         f"tolerance = {DAMAGE_TOLERANCE})",
@@ -170,6 +149,7 @@ def calibration_table(calib, target=TARGET_DAMAGE):
 
 
 def calibrate_phase(patterns, rates, target=TARGET_DAMAGE, force=False):
+    """Solve and cache the severities for every (pattern, rate)."""
     from injector.build import load_ground_truth
     from core.missingness_patterns import make_mask
 

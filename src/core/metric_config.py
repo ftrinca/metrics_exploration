@@ -1,6 +1,4 @@
-"""Which metrics exist, how they are grouped for reporting, which direction
-counts as better, and which of them need special handling.
-"""
+# Metric registry: grouping for reports, direction, and the sets needing special handling.
 
 CATEGORIES: dict[str, list[str]] = {
     "Pointwise Error":      ["mae", "rmse", "mse", "mre", "smape", "nrmse", "nd"],
@@ -12,17 +10,10 @@ CATEGORIES: dict[str, list[str]] = {
 
 METRIC_LIST: list[str] = [m for metrics in CATEGORIES.values() for m in metrics]
 
-# Masking these would destroy what they measure: the autocorrelation structure,
-# the warping path and the power spectrum all need the whole series. Every
-# other metric is evaluated only at the missing positions.
+# Evaluated on the whole series; every other metric sees the missing positions only.
 FULL_SERIES_METRICS: set[str] = set(CATEGORIES["Temporal / Shape"])
 
-# Not undefined for a point estimate, but redundant on one: CRPS is exactly
-# MAE there, and NLL with a single sigma fitted to the residuals is a
-# monotone function of RMSE. Since no algorithm in this project produces
-# posterior samples, scoring them would add two columns and no information,
-# so they are absent from CATEGORIES and never scored. Kept here because
-# core.scoring.metric_applies still guards on the set.
+# Never scored: redundant with MAE and RMSE on a point estimate.
 PROBABILISTIC_METRICS: set[str] = {"crps", "nll"}
 
 METRIC_DIRECTION: dict[str, str] = {

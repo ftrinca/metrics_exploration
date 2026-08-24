@@ -1,16 +1,3 @@
-"""Algorithm Ranking reconstruction plots: for every (dataset, pattern, rate),
-draw each algorithm's reconstruction of one representative series against the
-ground truth.
-
-This is the human-readable check on how an algorithm is wrong, which the
-ranking heatmap cannot show. It reads only build.py's cached data.json, so it
-runs without score.py or aggregate.py.
-
-Usage:
-  python algo_ranking/visualize.py
-  python algo_ranking/visualize.py --datasets climate --patterns mcar --rates 0.2 0.8
-"""
-
 import argparse
 import json
 import os
@@ -32,23 +19,16 @@ from algo_ranking.plotting import plot_reconstruction
 
 
 def _choose_window(mask_series: np.ndarray, window_size: int, n_timesteps: int) -> int:
-    """Return a window start that actually contains missing positions for this
-    series, or 0 when the series has none at all.
+    """Return a window start containing missing positions, or 0 when the series has none.
 
-    A fixed offset cannot work across the three patterns: scattered and blackout
-    each place one contiguous gap at a random start, which a fixed window has no
-    guarantee of overlapping and empirically missed. Centring on the longest run
-    of missing positions always intersects that gap, and under mcar, where the
-    longest run is only a few steps, a window centred there still catches many
-    of the surrounding single-point removals because mcar's rate is uniform over
-    the series.
+    Centres on the longest run of missing positions, since scattered and
+    blackout each place one contiguous gap at a random start that a fixed offset
+    has no guarantee of overlapping.
     """
     missing_idx = np.flatnonzero(mask_series)
     if missing_idx.size == 0:
         return 0
 
-    # Longest contiguous run within missing_idx: split at every place the
-    # index jumps by more than 1, then take the widest resulting run.
     gaps = np.flatnonzero(np.diff(missing_idx) > 1)
     run_starts = np.concatenate(([0], gaps + 1))
     run_ends = np.concatenate((gaps, [missing_idx.size - 1]))
@@ -62,9 +42,7 @@ def _choose_window(mask_series: np.ndarray, window_size: int, n_timesteps: int) 
 
 
 def visualize_one(dataset: str, pattern: str, rate: float, seed: int = 0) -> None:
-    """Plot one scenario's reconstructions for the series at
-    config.PLOT_SERIES_INDEX, using every algorithm cached in that seed's
-    data.json. Raises FileNotFoundError when that build does not exist."""
+    """Plot one scenario's reconstructions for the series at config.PLOT_SERIES_INDEX."""
     data_path = os.path.join(seed_dir(dataset, pattern, rate, seed), "data.json")
     if not os.path.exists(data_path):
         raise FileNotFoundError(
@@ -74,7 +52,6 @@ def visualize_one(dataset: str, pattern: str, rate: float, seed: int = 0) -> Non
     with open(data_path) as f:
         built = json.load(f)
 
-    # data.json is stored natively, so these are (n_series, n_timesteps).
     y_true = np.array(built["y_true"])
     mask = np.array(built["mask"])
     reconstructions = {
@@ -104,6 +81,7 @@ def visualize_one(dataset: str, pattern: str, rate: float, seed: int = 0) -> Non
 
 
 def visualize_phase(datasets: list[str], patterns: list[str], rates: list[float]) -> None:
+    """Draw the reconstruction plots for every (dataset, pattern, rate)."""
     for dataset in datasets:
         print(f"=== dataset: {dataset} " + "=" * 50)
         for pattern in patterns:

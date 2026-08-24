@@ -1,20 +1,12 @@
-"""Turning per-algorithm metric scores into a per-metric ranking."""
-
 import math
 
 
 def rank_algorithms(metric_scores: dict[str, float | None], direction: str) -> dict[str, float]:
-    """Rank algorithms for one metric, 1 = best. Algorithms scoring None are
-    placed last.
+    """Rank algorithms for one metric, 1 = best. Algorithms scoring None are placed last.
 
     Ties get the average of the positions their group spans, so the ranks in a
-    scenario sum to the same total however many ties occur. The consensus
-    averaging and the Spearman correlations downstream both rely on that.
-    Ties are real here rather than a numerical accident: under blackout
-    missingness several algorithms return the same reconstruction, and ranking
-    them by insertion order would manufacture a ranking out of a genuine tie.
-
-    direction is "lower" or "higher", from metric_config.METRIC_DIRECTION.
+    scenario sum to the same total however many ties occur. `direction` is
+    "lower" or "higher", from metric_config.METRIC_DIRECTION.
     """
     valid = {algo: score for algo, score in metric_scores.items() if score is not None}
     failed = [algo for algo, score in metric_scores.items() if score is None]
@@ -42,13 +34,9 @@ def rank_algorithms(metric_scores: dict[str, float | None], direction: str) -> d
 
 
 def competition_rank(avg_ranks: dict[str, float]) -> dict[str, int]:
-    """Convert average ranks into competition ranking, where every member of a
-    tied group shows the group's best position and the next distinct value
-    resumes after the whole group: a four-way tie for positions 1 to 4 reads
-    1, 1, 1, 1, 5.
+    """Convert average ranks into competition ranking, e.g. 1, 1, 1, 1, 5 for a 4-way tie.
 
-    Display only. Every numeric aggregation uses rank_algorithms' average
-    ranks, which competition ranking would distort.
+    Display only. Every numeric aggregation uses rank_algorithms' average ranks.
     """
     ordered = sorted(avg_ranks.items(), key=lambda x: x[1])
     comp: dict[str, int] = {}

@@ -1,32 +1,10 @@
-"""Check the exact invariants each distortion declares in config.DISTORTIONS.
-
-Each structural property implies an exact prediction about specific metrics: a
-preserved multiset cannot move any statistic computed from the empirical value
-distribution alone (WD, JSD, KLD), a preserved mean cannot move a measure of a
-difference in means (Bland-Altman, CDT), and a positive-slope affine transform
-cannot move a correlation (Pearson). A failed prediction means either the
-distortion is not doing what its design claims or the metric implementation
-does not have the property it is supposed to have.
-"""
-
 from __future__ import annotations
 
 from injector.config import DISTORTIONS
 
-# property -> {metric: (predicted value, absolute tolerance)}
-#
-# The tolerances differ because core.dataset_io.matrix_to_lists rounds every
-# value to four decimal places on its way into the cache, and each invariant
-# survives that rounding differently. A permuted multiset of rounded values is
-# still the same multiset, so those metrics stay at machine zero; a mean moves,
-# because different values round in different directions; a correlation is
-# invariant to scale and barely moves. Every tolerance is still orders of
-# magnitude tighter than any real reaction, so a metric that has genuinely lost
-# an invariance still fails.
-#
-# "rank" predicts nothing, because no metric in the current set is a pure rank
-# statistic. It is recorded because it explains why discretise leaves DTW's
-# alignment largely intact.
+# property -> {metric: (predicted value, absolute tolerance)}. The tolerances
+# differ because the cache rounds to four decimals and each invariant survives
+# that rounding differently.
 PREDICTIONS = {
     "multiset": {
         "wd":  (0.0, 1e-9),
@@ -55,9 +33,9 @@ def expected(distortion: str) -> dict[str, tuple[float, float]]:
 def check(scores: dict[str, dict[str, float | None]]) -> list[dict]:
     """Check every prediction against one scenario's scores.
 
-    scores is the {metric: {distortion: value}} structure produced by
-    core.scoring.compute_all_scores. Returns one row per prediction; a metric
-    that returned None counts as a failure rather than being skipped.
+    `scores` is the {metric: {distortion: value}} structure compute_all_scores
+    produces. Returns one row per prediction; a metric that returned None counts
+    as a failure rather than being skipped.
     """
     rows = []
     for distortion in DISTORTIONS:

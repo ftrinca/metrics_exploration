@@ -1,16 +1,3 @@
-"""Aggregate phase of the equal-damage experiment.
-
-Reads the cached scores for every rate, averages them into the three rate
-buckets, and writes per (pattern, bucket) the raw metric x distortion table
-with spread columns, the signed z-score heatmap, the metric-agreement matrix
-and the exact-invariance check.
-
-The invariance table comes from the un-bucketed scores of a single rate rather
-than from the bucket mean, because a prediction that is exact should be checked
-against an exact number: averaging a Pearson of exactly 1.0 with a rate where
-the metric returned None would not preserve it.
-"""
-
 import argparse
 import json
 import os
@@ -34,6 +21,7 @@ from injector.plotting import (
 
 
 def bucket_mean(raw_scores, rates_in_bucket):
+    """Mean score per (metric, distortion) over the rates in one bucket."""
     out = {}
     for metric in analysis.INJECTOR_METRICS:
         out[metric] = {}
@@ -45,6 +33,7 @@ def bucket_mean(raw_scores, rates_in_bucket):
 
 
 def agreement_table(agree) -> str:
+    """Render the metric-by-metric Spearman agreement matrix."""
     metrics = analysis.INJECTOR_METRICS
     lines = [
         "METRIC AGREEMENT OVER THE EIGHT DISTORTIONS",
@@ -65,6 +54,7 @@ def agreement_table(agree) -> str:
 
 
 def aggregate_phase(patterns):
+    """Bucket the cached scores and write the tables, heatmaps and invariance checks."""
     os.makedirs(EQUAL_REPORT_DIR, exist_ok=True)
 
     z_by_condition: dict[tuple, dict] = {}
@@ -98,8 +88,7 @@ def aggregate_phase(patterns):
                 spreads=spreads,
             )
 
-            # one concrete rate, because an exact prediction cannot be checked
-            # against a mean over rates
+            # an exact prediction is checked against one rate, not a mean over rates
             inv_rate = rates_in[len(rates_in) // 2]
             inv_rows = invariance.check(raw[inv_rate])
 
@@ -121,9 +110,6 @@ def aggregate_phase(patterns):
                 print(f"   !! {len(failures)} invariance prediction(s) FAILED — see the report")
         print()
 
-    # The two overview figures need every condition, so they are only built on
-    # a full run. On a --patterns subset the collected dict is incomplete and
-    # the figures would silently show fewer rows than their axes claim.
     if set(patterns) == set(PATTERNS):
         print("=== side-by-side overviews " + "=" * 35)
         plot_metric_overview(

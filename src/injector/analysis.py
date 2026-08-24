@@ -1,11 +1,3 @@
-"""Turn one scenario's scores into the reported statistics.
-
-Because every distortion causes the same pointwise damage, the question is
-whether a metric still tells the eight kinds of damage apart (spread), where
-each distortion sits in a metric's own ordering (z-scores), and whether two
-metrics order the eight the same way (agreement).
-"""
-
 from __future__ import annotations
 
 import numpy as np
@@ -16,19 +8,12 @@ from injector.config import DISTORTION_NAMES, INJECTOR_CATEGORIES
 
 INJECTOR_METRICS: list[str] = [m for cat in INJECTOR_CATEGORIES for m in CATEGORIES[cat]]
 
-# A metric whose relative spread is below this is reported as not
-# distinguishing the eight distortions at all.
-#
-# A metric pinned by the calibration still shows some spread, because the
-# solver only lands within config.DAMAGE_TOLERANCE of the target: that residual
-# alone is a few percent of the target. The threshold has to sit above the
-# residual and below any real reaction, and the gap between the two is wide
-# enough that any value inside it gives the same answer, so a round number is
-# used.
+# Relative spread below this counts as not distinguishing the eight distortions.
 FLAT_RELATIVE_SPREAD = 0.10
 
 
 def _row(value_table, metric):
+    """One metric's values across the eight distortions, in DISTORTION_NAMES order."""
     return [value_table.get(metric, {}).get(d) for d in DISTORTION_NAMES]
 
 
@@ -57,12 +42,10 @@ def spread(value_table: dict[str, dict[str, float | None]]) -> dict[str, dict]:
 
 
 def zscores(value_table: dict[str, dict[str, float | None]]) -> dict[str, dict[str, float]]:
-    """Signed z-score per (metric, distortion).
+    """Signed z-score per (metric, distortion), positive meaning worse.
 
-    Positive always means "this distortion made the reconstruction look worse
-    to this metric", whatever the metric's own lower-is-better or
-    higher-is-better convention. A metric with too few values, or with no
-    variation across the eight, scores 0.0 everywhere.
+    The sign is adjusted for each metric's own direction. A metric with too few
+    values, or with no variation across the eight, scores 0.0 everywhere.
     """
     z = {}
     for metric in INJECTOR_METRICS:
@@ -81,12 +64,11 @@ def zscores(value_table: dict[str, dict[str, float | None]]) -> dict[str, dict[s
 
 
 def agreement(value_table: dict[str, dict[str, float | None]]) -> dict[str, dict[str, float]]:
-    """Spearman correlation between every pair of metrics over the eight
-    distortions, after sign adjustment so that "worse" points the same way for
-    all metrics.
+    """Spearman correlation between every pair of metrics over the eight distortions.
 
-    A pair with fewer than three shared values, or with no variation on either
-    side, gives nan rather than a correlation.
+    Values are sign-adjusted first so that "worse" points the same way for all
+    metrics. A pair with fewer than three shared values, or with no variation on
+    either side, gives nan.
     """
     oriented = {}
     for metric in INJECTOR_METRICS:
@@ -113,8 +95,7 @@ def agreement(value_table: dict[str, dict[str, float | None]]) -> dict[str, dict
 
 
 def summary_table(value_table, spreads) -> str:
-    """Render the raw values plus the spread columns, marking flat rows with a
-    trailing asterisk."""
+    """Render the raw values plus the spread columns, marking flat rows with an asterisk."""
     lines = [
         "EQUAL-DAMAGE COMPARISON",
         "=" * 104,

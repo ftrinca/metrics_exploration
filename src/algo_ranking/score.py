@@ -1,19 +1,3 @@
-"""Algorithm Ranking score phase: read the cached reconstructions build.py
-produced, compute every metric per seed, average across seeds, and cache
-scores.json per (dataset, pattern, rate).
-
-No algorithms run here, so this phase is cheap even though the build it reads
-from is not.
-
-core.dataset_io stores as [series][timestep] whatever orientation it was given,
-so anything read back from data.json is already ImputeGAP-native (n_series,
-n_timesteps) and needs no transpose.
-
-Usage:
-  python algo_ranking/score.py
-  python algo_ranking/score.py --datasets climate --patterns mcar --rates 0.1 0.2
-"""
-
 import argparse
 import json
 import os
@@ -36,6 +20,7 @@ from algo_ranking.config import (
 
 
 def _load_built(dataset: str, pattern: str, rate: float, seed: int) -> dict:
+    """Read one seed's cached reconstructions."""
     data_path = os.path.join(seed_dir(dataset, pattern, rate, seed), "data.json")
     if not os.path.exists(data_path):
         raise FileNotFoundError(
@@ -49,15 +34,12 @@ def _load_built(dataset: str, pattern: str, rate: float, seed: int) -> dict:
 def _average_scores(
     per_seed_scores: list[dict[str, dict[str, float | None]]],
 ) -> dict[str, dict[str, float | None]]:
-    """Average across seeds per (metric, algorithm). None means the algorithm
-    failed on that draw and is left out of the mean; an algorithm that failed on
-    every draw averages to None.
+    """Average across seeds per (metric, algorithm).
 
-    The algorithm list is the union across seeds rather than seed 0's alone,
-    because a stochastic algorithm's subprocess can fail on one draw and succeed
-    on the others, and taking seed 0's list would drop it entirely. Order follows
-    ALGORITHMS so report columns stay stable whichever seeds an algorithm is
-    missing from.
+    None means the algorithm failed on that draw and is left out of the mean; an
+    algorithm that failed on every draw averages to None. The algorithm list is
+    the union across seeds, in ALGORITHMS order, so a stochastic algorithm that
+    failed on one draw is not dropped entirely.
     """
     present: set[str] = set()
     for s in per_seed_scores:
@@ -65,8 +47,6 @@ def _average_scores(
             present.update(per_algo.keys())
     algos = [name for name, _, _ in ALGORITHMS if name in present]
 
-    # Average whichever metrics the caller actually stored, rather than a
-    # fixed list, so this keeps working whatever config.ALGO_CATEGORIES holds.
     metrics = [k for k in METRIC_LIST if k in per_seed_scores[0]]
 
     averaged: dict[str, dict[str, float | None]] = {}
@@ -82,9 +62,11 @@ def _average_scores(
 
 
 def score_one(dataset: str, pattern: str, rate: float, force: bool = False) -> dict:
-    """Score one scenario from its cached builds and return {metric: {algo:
-    score}}, writing scores.json as a side effect. Returns the existing cache
-    untouched unless force=True."""
+    """Score one scenario from its cached builds, returning {metric: {algo: score}}.
+
+    Every metric is stored, not only the ones config.ALGO_CATEGORIES selects, so
+    a later change to the selection is an aggregate pass rather than a re-score.
+    """
     scores_path = os.path.join(rate_dir(dataset, pattern, rate), "scores.json")
     if not force and os.path.exists(scores_path):
         with open(scores_path) as f:
@@ -100,10 +82,6 @@ def score_one(dataset: str, pattern: str, rate: float, force: bool = False) -> d
             for name in built if name not in ("y_true", "mask")
         }
         scores = compute_all_scores(y_true_t, reconstructions, mask=mask_t)
-        # Every metric is stored, not only the ones config.ALGO_CATEGORIES
-        # currently selects: compute_all_scores has already computed them all,
-        # so keeping the rest is free and makes a later change to the selection
-        # an aggregate pass rather than a full re-score.
         per_seed_scores.append(scores)
 
     averaged = _average_scores(per_seed_scores)
@@ -116,23 +94,16 @@ def score_one(dataset: str, pattern: str, rate: float, force: bool = False) -> d
 
 
 def missing_metrics(scores: dict) -> list[str]:
-    """Which of the currently selected metrics are absent from a cached score
-    file. Non-empty means the cache predates a change to ALGO_CATEGORIES."""
+    """Which of the currently selected metrics are absent from a cached score file."""
     return [m for m in ALGO_METRICS if m not in scores]
 
 
 def ensure_scored(dataset: str, pattern: str, rate: float) -> dict:
     """Return the scores for one scenario, computing whatever is missing.
 
-    Three cases. No cache at all, so score it. A cache holding every currently
-    selected metric, so return it untouched. Or a cache written before the
-    metric set changed, in which case only the absent metrics are computed and
-    merged in.
-
-    That third case is the reason this function exists. Changing one metric in
-    ALGO_CATEGORIES would otherwise mean a full re-score, which is dominated by
-    DTW over long series, and the reconstructions it reads are untouched either
-    way.
+    A cache written before the metric set changed has only the absent metrics
+    computed and merged in, so changing one metric does not cost a full
+    re-score.
     """
     scores_path = os.path.join(rate_dir(dataset, pattern, rate), "scores.json")
     if not os.path.exists(scores_path):
@@ -170,11 +141,8 @@ def score_phase(
 ) -> None:
     """Score every (dataset, pattern, rate) from cached builds.
 
-    Without force this goes through ensure_scored rather than score_one, so a
-    cache written before a change to config.ALGO_CATEGORIES is topped up instead
-    of being skipped as complete. Skipping it would be the more surprising
-    behaviour, because nothing would report a problem and the aggregate would
-    then be built on a metric set that no longer matches the configuration.
+    Without force this goes through ensure_scored, so a cache predating a change
+    to config.ALGO_CATEGORIES is topped up instead of being skipped as complete.
     """
     for dataset in datasets:
         print(f"=== dataset: {dataset} " + "=" * 50)

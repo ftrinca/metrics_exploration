@@ -1,9 +1,3 @@
-"""Score every damage level of every distortion built by build_sweep.py.
-
-Uses the same core.scoring path as the equal-damage experiment, so the two
-sets of numbers are directly comparable.
-"""
-
 import argparse
 import json
 import os
@@ -21,6 +15,7 @@ from injector.config import DAMAGE_LEVELS, DISTORTION_NAMES, sweep_dir
 
 
 def score_one(name, force=False):
+    """Score every damage level of one distortion, caching to scores.json."""
     data_path = os.path.join(sweep_dir(name), "data.json")
     scores_path = os.path.join(sweep_dir(name), "scores.json")
     if not os.path.exists(data_path):
@@ -46,6 +41,7 @@ def score_one(name, force=False):
 
 
 def score_sweep_phase(names, force=False):
+    """Score the damage sweep for every distortion."""
     for name in names:
         print(f"=== {name} " + "=" * 46)
         score_one(name, force=force)

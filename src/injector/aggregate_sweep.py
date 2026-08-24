@@ -1,13 +1,3 @@
-"""Aggregate phase of the damage sweep.
-
-Produces one figure per category showing all eight distortions on a shared
-damage axis, and a report giving, per metric and distortion, whether the value
-rises monotonically with damage and how far it moves in total. Since every
-distortion is equally damaging at a given level, a metric that stays flat for
-one of them is blind to that kind of damage rather than seeing a smaller
-distortion.
-"""
-
 import argparse
 import json
 import os
@@ -32,7 +22,7 @@ FLAT_TOLERANCE = 1e-9
 
 
 def _load_all():
-    """{distortion: {metric: [value per level]}}"""
+    """Read every distortion's sweep scores as {distortion: {metric: [value per level]}}."""
     out = {}
     for name in DISTORTION_NAMES:
         path = os.path.join(sweep_dir(name), "scores.json")
@@ -49,14 +39,13 @@ def _load_all():
 
 
 def _classify(metric, values):
-    """('flat' | 'monotonic' | 'non-monotonic' | 'no data', total movement)."""
+    """Return ('flat' | 'monotonic' | 'non-monotonic' | 'no data', total movement)."""
     vals = [v for v in values if v is not None]
     if len(vals) < 2:
         return "no data", 0.0
     move = float(max(vals) - min(vals))
     if move <= FLAT_TOLERANCE:
         return "flat", 0.0
-    # orient so that "worse" is always increasing
     if METRIC_DIRECTION[metric] == "higher":
         vals = [-v for v in vals]
     diffs = np.diff(vals)
@@ -66,6 +55,7 @@ def _classify(metric, values):
 
 
 def report(data) -> str:
+    """Render the per-metric, per-distortion flat/monotonic/non-monotonic table."""
     lines = [
         f"DAMAGE SWEEP — {SWEEP_PATTERN}, {SWEEP_RATE:.0%} missing",
         "=" * 96,
@@ -105,6 +95,7 @@ def report(data) -> str:
 
 
 def aggregate_sweep_phase():
+    """Write one figure per category and the monotonicity report."""
     data = _load_all()
 
     for cat in INJECTOR_CATEGORIES:

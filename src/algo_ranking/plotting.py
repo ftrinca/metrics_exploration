@@ -1,7 +1,3 @@
-"""Figures for the Algorithm Ranking part: the algorithm by metric ranking
-heatmap, and the ground-truth-versus-reconstruction line plot.
-"""
-
 import os
 
 import matplotlib.pyplot as plt
@@ -20,12 +16,12 @@ def plot_reconstruction(
     output_path: str,
     figsize: tuple = (14, 7),
 ) -> None:
-    """Plot every algorithm's imputed values over the true signal for one
-    series, with the missing (evaluated) positions shaded.
+    """Plot every algorithm's imputed values over the true signal for one series.
 
     y_true and mask are 1-D, already reduced to one series and one window by the
     caller; imputations maps {algo_name: 1-D reconstruction} of the same length.
-    Creates the parent directory of output_path.
+    The y-axis is clipped to the ground truth's range plus padding, and any
+    algorithm leaving the visible range is named below the plot.
     """
     fig, ax = plt.subplots(figsize=figsize)
 
@@ -47,8 +43,7 @@ def plot_reconstruction(
     for name, y_pred in imputations.items():
         visible = np.full(len(y_pred), np.nan)
         visible[mask] = y_pred[mask]
-        # anchor each masked span to its neighbouring observed points so the
-        # line visually connects back to the ground truth at both edges
+        # anchor each masked span to its neighbouring observed points
         for i in range(len(mask)):
             if not mask[i]:
                 if i + 1 < len(mask) and mask[i + 1]:
@@ -58,14 +53,6 @@ def plot_reconstruction(
         visible_by_name[name] = visible
         ax.plot(visible, label=name, linewidth=1.1)
 
-    # Clip to the ground truth's own range rather than autoscaling, because one
-    # algorithm diverging by orders of magnitude otherwise compresses every
-    # other line into a flat band near zero. The 2.5x padding was picked against
-    # real cached reconstructions to clear an ordinarily good algorithm's worst
-    # moment while still cutting off genuine divergence. Nothing is hidden:
-    # matplotlib still draws the clipped lines out to the plot edge, and any
-    # algorithm that leaves the visible range is named below the plot so a
-    # clipped line is never read as a well-behaved one.
     finite_true = y_true[np.isfinite(y_true)]
     y_lo, y_hi = float(np.min(finite_true)), float(np.max(finite_true))
     pad = max((y_hi - y_lo) * 2.5, 1.0)
@@ -104,13 +91,11 @@ def plot_algo_ranking_heatmap(
     output_path: str,
     figsize: tuple = (12, 6),
 ) -> None:
-    """Draw the algorithm by metric rank heatmap, rows sorted best to worst by
-    global consensus and columns grouped by category. Rank 1 = best.
+    """Draw the algorithm x metric rank heatmap, rank 1 = best.
 
-    Cells show competition ranks rather than build_rank_matrix's average ranks,
-    so a tied group reads as one repeated whole number the way a leaderboard
-    shows ties. That conversion is display-only and feeds back into no
-    aggregation. Creates the parent directory of output_path.
+    Rows are sorted best to worst by global consensus and columns grouped by
+    category. Cells show competition ranks, which is display-only and feeds back
+    into no aggregation.
     """
     cat_consensus = category_consensus(rank_matrix)
     glob_consensus = global_consensus(cat_consensus)

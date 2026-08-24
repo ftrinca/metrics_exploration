@@ -1,15 +1,3 @@
-"""Score phase of the equal-damage experiment.
-
-Reads the cache built by build.py and computes every metric through
-core.scoring.compute_all_scores, which applies the usual rules: most metrics
-see only the masked positions, while ACF, DTW and sMAE receive the full series.
-
-core.dataset_io.matrix_to_lists and bool_matrix_to_mask both store data as
-[series][timestep] whatever the (T, N) array they were handed, so np.array on
-anything read back from data.json is already in (n_series, n_timesteps)
-orientation and must not be transposed again.
-"""
-
 import argparse
 import json
 import os
@@ -28,6 +16,7 @@ from injector.config import PATTERNS, RATES, rate_dir
 
 
 def _load_built(pattern: str, rate: float) -> dict:
+    """Read the cache build.py wrote for one (pattern, rate)."""
     path = os.path.join(rate_dir(pattern, rate), "data.json")
     if not os.path.exists(path):
         raise FileNotFoundError(
@@ -39,6 +28,11 @@ def _load_built(pattern: str, rate: float) -> dict:
 
 
 def score_one(pattern: str, rate: float, force: bool = False) -> dict:
+    """Score every distortion of one (pattern, rate), caching to scores.json.
+
+    Anything read back from data.json is already in (n_series, n_timesteps)
+    orientation and must not be transposed again.
+    """
     scores_path = os.path.join(rate_dir(pattern, rate), "scores.json")
     if not force and os.path.exists(scores_path):
         with open(scores_path) as f:
@@ -61,6 +55,7 @@ def score_one(pattern: str, rate: float, force: bool = False) -> dict:
 
 
 def score_phase(patterns, rates, force=False):
+    """Score every (pattern, rate) of the equal-damage experiment."""
     for pattern in patterns:
         print(f"=== pattern: {pattern} " + "=" * 46)
         for rate in rates:

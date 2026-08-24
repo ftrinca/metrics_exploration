@@ -1,18 +1,3 @@
-"""Self-test for the calibration and the declared invariants, on synthetic data.
-
-Needs neither ImputeGAP nor the cached build, so it can be run before anything
-else to check the machinery. It checks two claims: that every distortion can
-actually be solved to the target damage, and that the structural invariants
-declared in config.DISTORTIONS hold at the array level, before any metric is
-involved.
-
-A calibration failure is the signal to lower config.TARGET_DAMAGE rather than
-to work around it, because the experiment is not equalised if one distortion
-cannot reach the target. A structural failure means the fault is in the
-distortion rather than in a metric, so the predictions in invariance.py cannot
-hold either.
-"""
-
 from __future__ import annotations
 
 import os
@@ -36,8 +21,7 @@ T, N = 1000, 6
 
 
 def synthetic(seed=0):
-    """Return z-scored series with both periodicity and autocorrelation, so that
-    lag and smooth behave the way they would on real data."""
+    """Return z-scored series with both periodicity and autocorrelation."""
     rng = np.random.default_rng(seed)
     t = np.arange(T)
     out = np.zeros((T, N))
@@ -51,8 +35,7 @@ def synthetic(seed=0):
 
 
 def blocks_mask(y, rate=0.4, seed=1):
-    """Mask one contiguous block per series, which is the harder case for the
-    grid-searched distortions."""
+    """Mask one contiguous block per series."""
     rng = np.random.default_rng(seed)
     mask = np.zeros(y.shape, dtype=bool)
     length = int(rate * y.shape[0])
@@ -63,11 +46,13 @@ def blocks_mask(y, rate=0.4, seed=1):
 
 
 def scattered_mask(y, rate=0.4, seed=2):
+    """Mask individual positions at random."""
     rng = np.random.default_rng(seed)
     return rng.random(y.shape) < rate
 
 
 def check_calibration(y, mask, label, target=TARGET_DAMAGE):
+    """Check that every distortion can be solved to the target, and report the misses."""
     print(f"\n### calibration — {label}, target {target}")
     calib, failures = {}, []
     for name in DISTORTION_NAMES:
@@ -92,8 +77,7 @@ def check_calibration(y, mask, label, target=TARGET_DAMAGE):
 
 
 def check_structural(y, mask):
-    """Check the declared invariants on the arrays themselves, returning the
-    number of (distortion, claim) pairs that failed."""
+    """Check the declared invariants on the arrays themselves, returning the number of failures."""
     print("\n### structural invariants (array level, no metrics involved)")
     rows = []
     for name in DISTORTION_NAMES:
@@ -112,7 +96,6 @@ def check_structural(y, mask):
                 ok = abs(float(vals.mean()) - float(truth.mean())) < 1e-9
                 rows.append((name, "mean", i, ok))
             if "affine" in preserves:
-                # positive-slope affine: correlation is exactly 1
                 c = float(np.corrcoef(truth, vals)[0, 1])
                 rows.append((name, "affine", i, abs(c - 1.0) < 1e-9))
             if "rank" in preserves:
@@ -134,8 +117,7 @@ def check_structural(y, mask):
 
 
 def check_sweep_reachable(y, mask):
-    """Check that every distortion can reach every level of the damage sweep,
-    since the shared x-axis is a fiction for any line that cannot."""
+    """Check that every distortion can reach every level of the damage sweep."""
     print("\n### sweep levels reachable")
     bad = []
     for target in DAMAGE_LEVELS:
@@ -159,6 +141,7 @@ def check_sweep_reachable(y, mask):
 
 
 def main():
+    """Run every check on synthetic data. Returns 0 when all of them pass."""
     print("=" * 72)
     print("INJECTOR v2 SELF-TEST  (synthetic data, no ImputeGAP required)")
     print("=" * 72)

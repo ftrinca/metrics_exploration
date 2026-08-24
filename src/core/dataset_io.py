@@ -1,6 +1,3 @@
-"""Transposing between ImputeGAP's (n_timesteps, n_series) arrays and the
-[series][timestep] JSON the caches use."""
-
 import json
 import os
 
@@ -8,8 +5,7 @@ import numpy as np
 
 
 def matrix_to_lists(mat: np.ndarray, decimals: int = 4) -> list:
-    """Round to `decimals` and transpose. The rounding bounds cache size and is
-    the reason exact identities have to be checked at a tolerance."""
+    """Round an (n_timesteps, n_series) array to `decimals` and transpose to [series][timestep]."""
     n_series = mat.shape[1]
     return [
         [round(float(value), decimals) for value in mat[:, series_idx]]
@@ -18,7 +14,7 @@ def matrix_to_lists(mat: np.ndarray, decimals: int = 4) -> list:
 
 
 def matrix_to_mask(mat_contaminated: np.ndarray) -> list:
-    """True marks a missing value."""
+    """Transpose a NaN-punched array to a [series][timestep] mask, True marking a missing value."""
     is_missing = np.isnan(mat_contaminated)
     n_timesteps, n_series = is_missing.shape
     return [
@@ -28,7 +24,7 @@ def matrix_to_mask(mat_contaminated: np.ndarray) -> list:
 
 
 def bool_matrix_to_mask(mask: np.ndarray) -> list:
-    """Transpose a mask that is already boolean."""
+    """Transpose a mask that is already boolean to [series][timestep]."""
     n_timesteps, n_series = mask.shape
     return [
         [bool(mask[t, series_idx]) for t in range(n_timesteps)]
