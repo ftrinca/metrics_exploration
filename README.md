@@ -1,283 +1,342 @@
-# Metrics Exploration
+# metric_eval
 
-This folder contains a small pipeline for testing imputation-evaluation metrics
-on time series data. It builds a set of datasets (synthetic or real, with
-different missingness patterns), runs some "reconstructions" against each
-dataset (either hand-crafted distortions or real ImputeGAP imputation
-algorithms), computes a fixed set of metrics for every reconstruction, and
-writes out text reports and plots.
+Code and results for the experiments in *Comparative Analysis of Evaluation
+Metrics for Time Series Imputation* (Master's thesis, Swiss Joint Master of
+Computer Science, Universities of Bern, Fribourg and Neuchâtel).
 
-The pipeline has two steps:
+Three experiments, run in order:
 
-1. `python src/build_datasets.py` - generates the data and writes one JSON
-   file per experiment to `src/time_series/`.
-2. `python src/evaluate_metrics.py` - reads those JSON files and writes
-   reports to `src/reports/` and plots to `src/plots/`.
+| | Experiment | Question |
+|---|---|---|
+| 1 | **Injector** | With the amount of damage held constant, do the candidate metrics tell different *kinds* of damage apart? |
+| 2 | **Algorithm ranking** | Applied to real algorithms on real data, do the kept metrics agree on which algorithm is best? |
+| 3 | **CIS** | Can complementary metrics be combined into one score without losing what made them complementary? |
 
-Step 1 only needs to be re-run when something changes about *what data*
-exists (a new dataset, a new missingness pattern, a different normalization,
-...). Step 2 can be re-run on its own whenever something changes about *how
-the data is evaluated or displayed* (a new metric, a different plotted
-series, ranking logic, ...), since it just reads the JSON files that are
-already there.
+---
+
+## Install
+
+Requires Python 3.10 or newer.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Optionally install the project itself, which lets you run the modules from
+anywhere rather than only from `src/`:
+
+```bash
+pip install -e ".[dev]"
+```
+
+The `dev` extra adds `pytest`. Plain `pip install -e .` leaves it out.
+Installing is never required: the runner scripts and every stage work from
+`src/` without it.
+
+`imputegap` supplies both the datasets and the imputation algorithms, so
+nothing runs without it. The upper bounds in `requirements.txt` are not
+cosmetic — each one is a real incompatibility and the reason is in a comment
+next to it.
+
+---
+
+## Running the experiments
+
+All commands are run from `src/`.
+
+```bash
+cd src
+```
+
+### Quick check first
+
+```bash
+python -m injector.selftest
+```
+
+Runs on synthetic data. It needs neither ImputeGAP nor any cached output, and
+it verifies the two things Experiment 1 rests on: that every distortion can be
+solved to its damage target, and that the declared structural invariants hold
+before any metric is involved. If this fails, nothing downstream is
+trustworthy.
+
+### Experiment 1 — Injector
+
+```bash
+./run_injector.sh                       # everything, ~10 minutes
+```
+
+or stage by stage:
+
+```bash
+python -m injector.calibrate            # solve severities  -> calibration.json
+python -m injector.build                # apply them        -> data.json
+python -m injector.score                # all 20 metrics    -> scores.json
+python -m injector.aggregate            # tables, heatmaps, invariance checks
+
+python -m injector.build_sweep          # the same eight across seven damage levels
+python -m injector.score_sweep
+python -m injector.aggregate_sweep
+```
+
+Read `injector/README.md` for the design and for why each distortion is
+defined the way it is.
+
+### Experiment 2 — Algorithm ranking
+
+```bash
+./run_algo_ranking.sh                   # everything; the build stage takes hours
+```
+
+or stage by stage:
+
+```bash
+python -m algo_ranking.build            # SLOW: 6 algorithms x 54 scenarios x seeds
+python -m algo_ranking.score            # metrics from the cached reconstructions
+python -m algo_ranking.aggregate        # consensus ranks, agreement matrices, heatmaps
+python -m algo_ranking.visualize        # reconstruction plots (not part of the ranking)
+```
+
+`build` is the only genuinely expensive stage in the project. It runs each
+algorithm in its own subprocess so that one crashing cannot take the others
+down, and it caches every reconstruction, so `score` and `aggregate` can be
+re-run freely afterwards without touching it.
+
+### Experiment 3 — CIS
+
+```bash
+./run_cis.sh
+```
+
+or:
+
+```bash
+python -m cis.cis
+```
+
+Reads the scores Experiment 2 produced, so it needs that to have run first.
+
+### Everything
+
+```bash
+./run_all.sh
+```
+
+### Common flags
+
+Every stage caches its output and skips work already done. To redo it:
+
+```bash
+python -m injector.score --force
+```
+
+To work on a subset while developing:
+
+```bash
+python -m injector.build      --patterns mcar --rates 0.2 0.5
+python -m algo_ranking.score  --datasets chlorine --patterns blackout
+python -m injector.calibrate  --target 0.4
+```
+
+Two figures in Experiment 1 (`metric_overview.png` and `condition_grid.png`)
+need all three missingness patterns, so a `--patterns` subset skips them and
+says so.
+
+---
+
+## What comes out
+
+```
+plots/
+├── injector/equal_damage/       metric x distortion heatmaps, one per condition,
+│                                plus metric_overview.png and condition_grid.png
+├── injector/damage_sweep/       one panel per metric, all eight distortions on
+│                                a shared damage axis
+├── algo_ranking/<dataset>/heatmap/<pattern>_<bucket>.png
+├── algo_ranking/<dataset>/reconstruction/<pattern>_<rate>pct.png
+└── cis/                         gate distribution, CIS against the 8-metric consensus
+
+reports/
+├── injector/equal_damage/       raw value tables, metric agreement, invariance checks
+├── injector/damage_sweep/       flat / monotonic / non-monotonic per metric
+├── algo_ranking/<dataset>/<pattern>_<bucket>.txt
+└── cis/                         validation, supporting experiments, rejected constructions
+
+time_series/                     cached reconstructions — large, and regenerable
+```
+
+`time_series/` is around 350 MB and is fully reproducible from the code, so it
+is not worth version-controlling. `plots/` and `reports/` are what the thesis
+cites and are worth keeping.
+
+---
+
+## The metric set
+
+`core/metrics.py` holds **22 metric functions**, one formula each. **20 of them
+are scored**, and those 20 are what `core/metric_config.py` groups into
+categories and assigns a direction:
+
+| Category | Metrics |
+|---|---|
+| Pointwise Error | MAE, RMSE, MSE, MRE, sMAPE, nRMSE, ND |
+| Distributional | WD, JSD, KLD |
+| Temporal / Shape | ACF, DTW, sMAE |
+| Statistical Agreement | Pearson, MI, R², TOST, BA, CDT |
+| Domain-specific | PFC |
+
+The two that are never scored are `crps` and `nll`. Neither is undefined for a
+point estimate — CRPS is exactly MAE there, and NLL is a monotone function of
+RMSE — so on the point estimates every algorithm here produces they would add a
+column each and no information. They are implemented, and their posterior-sample
+branches are unverified, because nothing in this project exercises them.
+
+Each experiment then narrows the set further:
+
+| | Uses | Which |
+|---|---|---|
+| 1 — Injector | 19 | scored on all 20, reported on the four categories above the domain-specific one |
+| 2 — Algorithm ranking | 8 | two per category: MAE/RMSE, R²/MI, WD/JSD, DTW/sMAE |
+| 3 — CIS | 4 | one per category: MAE, WD, DTW, MI |
+
+Three of the 20 are computed on the **whole series** rather than at the missing
+positions only: ACF, DTW and sMAE. Masking them would destroy what they measure,
+since the autocorrelation structure, the warping path and the power spectrum all
+need the series intact. Every other metric sees the missing positions alone.
+
+Directions are not uniform. Most are lower-is-better; Pearson, MI, R² and PFC
+are higher-is-better; TOST is a p-value, so lower; and BA returns a pair and is
+ranked on the absolute mean difference. `METRIC_DIRECTION` is what every ranking
+and z-score in the project reads, so a metric added without an entry there
+raises rather than being silently ranked the wrong way round.
+
+---
 
 ## Layout
 
 ```
-README.md               - this file
-metric_verification.md  - per-metric formula review
-requirements.txt        - pinned dependencies
-src/                     - all code, plus generated data/reports/plots
+src/
+├── run_injector.sh           Experiment 1, end to end
+├── run_algo_ranking.sh       Experiment 2, end to end
+├── run_cis.sh                Experiment 3, end to end
+├── run_all.sh                all three, in dependency order
+├── _run_common.sh            sourced by the four above; not run directly
+│
+├── core/                     shared by all three experiments
+│   ├── metrics.py            22 metric functions, one formula each
+│   ├── metric_config.py      the 20 that are scored, with categories
+│   │                         and directions
+│   ├── scoring.py            compute_all_scores — every metric, every reconstruction
+│   ├── ranking.py            rank_algorithms
+│   ├── missingness_patterns.py
+│   ├── dataset_io.py         (T, N) arrays <-> the [series][timestep] JSON cache
+│   └── data/                 ground-truth loading and normalisation
+│
+├── injector/                 Experiment 1
+│   ├── config.py             single source of truth for the design
+│   ├── distortions.py        the eight distortions
+│   ├── calibrate.py          solves each severity to a common damage target
+│   ├── build.py  score.py  aggregate.py
+│   ├── build_sweep.py  score_sweep.py  aggregate_sweep.py
+│   ├── analysis.py           spread, z-scores, metric agreement
+│   ├── invariance.py         machine-checked exact predictions
+│   ├── plotting.py
+│   ├── selftest.py
+│   └── README.md             the design, and why it is what it is
+│
+├── algo_ranking/             Experiment 2
+│   ├── config.py             datasets, algorithms, the kept metric set
+│   ├── algorithms.py         the six ImputeGAP algorithms
+│   ├── build.py  score.py  aggregate.py
+│   ├── _run_algorithm.py     one algorithm in one subprocess
+│   ├── ranking_report.py  plotting.py  visualize.py
+│
+├── cis/                      Experiment 3
+│   └── cis.py                gate, score, validation, rejected constructions
+│
+└── time_series/  plots/  reports/       generated output
+
+tests/                        pytest suite over core/metrics.py
+pyproject.toml                packaging; dependencies are read from
+                              requirements.txt rather than repeated
 ```
 
-## Setup
+Each experiment is a **build → score → aggregate** pipeline with its own cache,
+so any stage can be re-run once its inputs exist. Building is the expensive
+part and scoring is cheap, which is why they are separate: changing a metric
+costs a scoring pass, not an algorithm pass.
 
-All dependencies are listed in `requirements.txt`, plus `imputegap` (used for
-loading real-world data, normalization, missingness patterns, and the
-real imputation algorithms - it isn't pinned in `requirements.txt` because of
-a packaging issue, install it separately):
+`core/` holds only what more than one experiment uses. Anything used by a
+single experiment lives in that experiment's own package, even where two are
+similar — the two `plotting.py` files draw different figures and merging them
+would help nobody.
 
-```
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-pip install imputegap==1.1.2
-```
+---
 
-Then run the two scripts above from this directory (they are invoked as
-`python src/<script>.py`, with paths resolved relative to `src/`
-regardless of the current working directory).
+## Testing
 
-## Where to change things
-
-This section lists the most common things to adjust and where to do it.
-
-**Add, remove, or change a dataset/experiment** (which missingness patterns,
-rates, normalizations, and reconstructions exist) -> `src/experiment_config.py`,
-the `SYNTHETIC_SPECS` / `IMPUTEGAP_SPECS` lists. Every entry is an
-`ExperimentSpec`, e.g.:
-
-```python
-ExperimentSpec(source="synthetic", missingness_pattern="mcar", rate=0.2)
+```bash
+pytest                        # from the repository root
 ```
 
-Adding a line here is enough to add a whole new experiment - `build_datasets.py`
-and `evaluate_metrics.py` both loop over `ALL_SPECS` and don't need to be
-touched.
+`tests/` checks the algebraic identities the metric implementations are
+supposed to satisfy: that ND is a fixed multiple of MAE, that nRMSE is a fixed
+multiple of RMSE, that MSE is RMSE squared, that Pearson is invariant to a
+positive-slope affine transform, and that WD, JSD and KLD are invariant to a
+permutation of the values. Those identities are load-bearing for the thesis's
+redundancy and blind-spot arguments, so they are worth asserting rather than
+assuming.
 
-**Change which missingness patterns are available** -> `src/missingness_patterns.py`,
-the `PATTERN_FUNCS` dictionary. New patterns just need a function that takes
-the ground truth and a rate and returns a boolean mask (most of these wrap
-ImputeGAP's `GenGap` contamination functions).
+`python -m injector.selftest` is the equivalent check for the Experiment 1
+design and does not need pytest.
 
-**Change normalization** -> `src/data/normalization.py`. The `normalization`
-field on an `ExperimentSpec` accepts `"none"`, `"z_score"`, `"min_max"`,
-`"z_lib"`, or `"m_lib"`.
+---
 
-**Change the synthetic ground truth** (shapes, length, number of series, noise)
--> `src/data/synthetic_ground_truth.py`. `N_TIMESTEPS` and `N_SERIES` are the
-defaults; `BASE_SHAPES` is the list of waveform generators each series is
-built from.
+## Reproducibility
 
-**Change the six hand-crafted distortions** (constant offset, random spikes,
-etc.) -> `src/reconstruction/synthetic_distortions.py`.
+Every stochastic step is seeded. Experiment 1 draws its distortions from a
+generator keyed on the seed, the series index and the distortion name, so
+repeating a run reproduces it byte for byte. Experiment 2 runs the two
+stochastic algorithms (BRITS and MPIN) three times per scenario and averages;
+the other four are deterministic and run once.
 
-**Change which real ImputeGAP algorithms are run** -> `src/reconstruction/imputation_algorithms.py`,
-the `ALGORITHMS` list.
+Two things are worth knowing before comparing numbers against another tool:
 
-**Add, remove, or re-categorize a metric** -> `src/metric_config.py`. This is
-the single place that defines which metrics exist, how they're grouped in
-reports/heatmaps (`CATEGORIES`), which direction is "better"
-(`METRIC_DIRECTION`), and which metrics need special handling (full-series
-input, probabilistic output). The actual formula for a metric goes in
-`src/metrics.py`, as a function with the same name.
+- **The cache rounds to four decimal places** on the way to disk
+  (`core/dataset_io.py`). Anything that has to hold exactly — the invariance
+  checks in Experiment 1 — is checked at a tolerance that accounts for this,
+  and `injector/invariance.py` explains the tolerance chosen for each
+  property.
+- **Some conventions differ from ImputeGAP's own.** RMSE is averaged per
+  series here and pooled across series there; mutual-information bins use a
+  range shared between the two series; Pearson on a constant series returns
+  zero rather than NaN. None is a bug, and each means a number here is not
+  directly comparable with the same metric computed by ImputeGAP.
 
-**Change which series is plotted in the imputation plot** -> `src/evaluate_metrics.py`,
-the `PLOT_SERIES_INDEX` constant near the top of the file. Each dataset has
-several series (channels); only one is shown at a time so the plot stays
-readable.
+---
 
-## File-by-file
+## Configuration
 
-All paths below are relative to `src/`.
+Each experiment's `config.py` is the single source of truth for its design and
+carries the reasoning for each constant in comments. The values most likely to
+be worth changing:
 
-### `experiment_config.py`
+| Where | Constant | Meaning |
+|---|---|---|
+| `injector/config.py` | `TARGET_DAMAGE` | the damage every distortion is solved to, in σ |
+| | `DAMAGE_LEVELS` | the seven levels of the sweep |
+| | `PATTERNS`, `RATES` | missingness geometries and rates |
+| `algo_ranking/config.py` | `ALGO_CATEGORIES` | the kept metrics, grouped by category |
+| | `DATASETS`, `RATES`, `N_SEEDS` | scenario coverage |
+| `cis/cis.py` | `CIS_METRICS` | the four metrics the composite uses |
+| | `FLAT_THRESHOLD`, `UNSTABLE_THRESHOLD` | the stability gate |
+| | `MI_SCALE` | the empirical scale for the MI component |
 
-The central list of experiments. An `ExperimentSpec` describes one experiment:
-where the ground truth comes from (`source`), what normalization to apply,
-which missingness pattern and rate to use, and which kind of reconstruction to
-evaluate against it (the synthetic distortions, or real imputation
-algorithms). It also derives the dataset name and output file path used
-everywhere else, so renaming or adding an experiment only requires editing
-this file. `SYNTHETIC_SPECS` and `IMPUTEGAP_SPECS` are combined into
-`ALL_SPECS`, which both pipeline scripts iterate over.
-
-### `data/`
-
-- `synthetic_ground_truth.py` - generates the synthetic multivariate time
-  series. Each series follows one of four base shapes (sine with a trend, sum
-  of two sines, smoothed random walk, smoothed square wave blended with a
-  sine), cycled round-robin across series, with per-series randomized phase,
-  frequency, trend, and noise. Everything is seeded, so the output is
-  reproducible.
-- `real_world_ground_truth.py` - loads a real ImputeGAP dataset (e.g.
-  `eeg-alcohol`) and cuts it down to the requested number of series.
-- `normalization.py` - applies one of the normalization methods to the ground
-  truth before contamination, using ImputeGAP's own normalizers.
-
-### `missingness_patterns.py`
-
-Wraps ImputeGAP's `GenGap` contamination functions and converts their output
-(a NaN-contaminated copy of the data) into a boolean mask, where `True` means
-"this position is missing and should be evaluated". `make_mask()` is the
-single entry point used by `build_datasets.py`; it dispatches to one of the
-pattern functions in `PATTERN_FUNCS` based on the `missingness_pattern` string
-in an `ExperimentSpec`. Currently used patterns are `full` (nothing removed,
-everything evaluated), `mcar` (individual points removed at random),
-`scattered` (one random gap per series), and `blackout` (one gap at the same
-position across all series). A few more patterns (`aligned`, `gaussian`,
-`distribution`, `disjoint`, `overlap`) are implemented and ready to use, just
-not part of any current experiment.
-
-### `reconstruction/`
-
-- `synthetic_distortions.py` - builds six fixed, hand-crafted "reconstructions"
-  from the ground truth, each meant to represent a different failure mode an
-  imputation algorithm might have: a constant offset, a few large spikes, a
-  time shift, oversmoothing, a shuffled order, and a rescaled amplitude. These
-  are deterministic (seeded) and don't depend on the missingness mask - they
-  are computed directly from the ground truth.
-- `imputation_algorithms.py` - runs a fixed list of real ImputeGAP imputation
-  algorithms (simple baselines like mean/zero fill, matrix-completion methods
-  like CDRec/SoftImpute/SVT, and STMVL) against a copy of the ground truth with
-  the missingness mask applied as NaNs. Algorithms that fail or leave NaNs
-  behind are skipped and simply don't appear in the output. ImputeGAP's own
-  quick metrics (RMSE, MAE, MI, correlation) are printed during this step as a
-  sanity check, but the actual metrics used for reporting are computed later
-  by `metrics.py` / `generate_reports.py`.
-
-### `dataset_io.py`
-
-Small helper module shared by `build_datasets.py`. The ground truth and
-reconstructions are produced as `(n_timesteps, n_series)` numpy arrays, but
-the JSON files (and everything downstream) use a `[series][timestep]` list
-format. `matrix_to_lists`, `matrix_to_mask`, and `bool_matrix_to_mask` do that
-conversion (and round values to 4 decimals to keep file sizes down);
-`save_dataset` writes the resulting dictionary to disk, creating folders as
-needed.
-
-### `build_datasets.py`
-
-The first pipeline step. For every `ExperimentSpec` in `ALL_SPECS`, it: generates
-the ground truth, applies normalization, builds the missingness mask, runs the
-reconstruction (synthetic distortions or real algorithms), and writes
-`{y_true, mask, <reconstruction name>: ...}` to a JSON file under
-`time_series/`. The path follows the pattern
-`time_series/synthetic/<pattern>/[<rate>/]data.json` for synthetic data, or
-`time_series/imputegap/<source>/<pattern>/[<rate>/]data.json` for real data
-(the rate folder is left out for `full`, since there's no rate there). Run
-this once, or again whenever the experiment list or any of the generation code
-changes.
-
-### `metric_config.py`
-
-Defines the 22 metrics used throughout the project: which ones exist, how
-they're grouped into categories for the reports and heatmaps (`CATEGORIES`),
-the order they're shown in (`METRIC_LIST`, derived from `CATEGORIES`), and
-whether a lower or higher value is better (`METRIC_DIRECTION`). It also marks
-two special groups:
-
-- `FULL_SERIES_METRICS` (ACF, DTW, spectral MAE) - these need the entire
-  series to be meaningful, so they're always computed on the full series even
-  when a mask is set, and they're skipped for probabilistic algorithm output.
-- `PROBABILISTIC_METRICS` (CRPS, NLL) - these only make sense for algorithms
-  that output a distribution per point rather than a single value, so they're
-  skipped for deterministic output.
-
-### `metrics.py`
-
-The actual formula for each of the 22 metrics, one function per metric (e.g.
-`mae`, `rmse`, `wd`, `dtw`, ...), each taking `(y_true, y_pred)` and returning
-a float (except `ba`, which returns a `(mean_diff, loa)` tuple). Most of these
-are thin wrappers around `sklearn`, `scipy`, `statsmodels`, `dtaidistance`,
-`properscoring`, or `pingouin`. Each function has a short comment explaining
-what it measures, its range, and which direction is better. A detailed,
-metric-by-metric writeup (formulas, sanity checks, comparisons against
-reference implementations) is in `metric_verification.md`.
-
-### `generate_reports.py`
-
-Loads a dataset's JSON file (`load_data`) and computes every metric for every
-reconstruction (`compute_all_scores`). For each (metric, reconstruction) pair,
-`metric_applies()` checks whether that metric makes sense for that
-reconstruction's output - probabilistic metrics need probabilistic output,
-full-series metrics need deterministic output - and the score is recorded as
-`None` if not. `applicable_metrics()` then returns the subset of metrics that
-were actually computed for at least one reconstruction in a given dataset;
-this is what lets the heatmap and ranking report leave out metrics like CRPS/NLL
-entirely when nothing in a dataset is probabilistic, instead of showing them as
-"n/a" everywhere. `generate_metrics_report()` writes the raw per-metric,
-per-reconstruction scores to `reports/<dataset>_metrics.txt` (here, metrics
-that don't apply are still shown, just marked "n/a", since this report is
-meant to show the full picture).
-
-### `ranking.py`
-
-Turns the raw scores from `compute_all_scores` into rankings.
-`build_rank_matrix()` ranks every reconstruction for each applicable metric
-(rank 1 = best, according to `METRIC_DIRECTION`; reconstructions with a `None`
-score are ranked last). `generate_ranking_report()` writes
-`reports/<dataset>_ranking_summary.txt`, containing the per-metric ranking
-table grouped by category, a consensus ranking (average rank across all
-metrics), a Spearman correlation matrix between metrics (how often two metrics
-agree on the ordering of reconstructions), and the most agreeing/disagreeing
-metric pairs. Any metric that wasn't applicable to this dataset is listed
-separately as "omitted".
-
-### `plot.py`
-
-Two plotting functions. `plot_imputation()` draws the ground truth and every
-reconstruction for a single series, shading the positions that were treated as
-missing. `plot_ranking()` draws the heatmap of ranks (reconstructions x
-metrics, grouped by category with a divider and label per category). Both
-functions either save to a file (if `output_path` is given) or call
-`plt.show()`.
-
-### `evaluate_metrics.py`
-
-The second pipeline step, and the main place to look when changing what gets
-displayed. For every `ExperimentSpec` in `ALL_SPECS` (skipping any whose
-JSON file doesn't exist yet), it: writes the metrics report, plots one series'
-imputation comparison (which series is controlled by `PLOT_SERIES_INDEX` at
-the top of the file), writes the ranking report, and plots the ranking
-heatmap. Output goes to `reports/` and `plots/`, named after
-`spec.dataset_name` (e.g. `synthetic_mcar_20pct`, `imputegap_eeg-alcohol_mcar_20pct`).
-
-### `metric_verification.md` (repo root)
-
-A separate writeup, one section per metric, covering the formula, what it
-measures, how the code implements it, any deviations from the textbook
-definition, and how it compares against reference implementations
-(scikit-learn, ImputeGAP, sktime, etc.) where applicable. Useful background if
-a metric's value looks surprising and it's unclear whether that's expected or
-a bug.
-
-### `requirements.txt` (repo root)
-
-Pinned versions for the non-ImputeGAP dependencies (numpy, scipy,
-scikit-learn, statsmodels, dtaidistance, properscoring, pingouin,
-matplotlib). `imputegap` is installed separately (see Setup above).
-
-## Output layout
-
-```
-src/time_series/<...>/data.json        - generated by build_datasets.py
-src/reports/<dataset>_metrics.txt       - raw scores, one row per metric
-src/reports/<dataset>_ranking_summary.txt - rankings, consensus, metric agreement
-src/plots/<dataset>_imputation.png      - one series, ground truth vs. reconstructions
-src/plots/<dataset>_ranking.png         - heatmap of ranks per metric
-```
-
-`<dataset>` is `spec.dataset_name`, e.g. `synthetic_mcar_20pct` or
-`imputegap_eeg-alcohol_mcar_20pct`.
+Changing the metric set in Experiment 2 costs an `aggregate` run and nothing
+else. `aggregate` checks the cached scores against the current selection and,
+where a metric is missing, computes only that metric from the cached
+reconstructions before continuing (`score.ensure_scored`). The expensive part
+of a scoring pass is DTW on 2000-timestep series, and there is no reason to
+pay it again to add a spectral distance.

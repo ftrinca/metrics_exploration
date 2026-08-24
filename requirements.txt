@@ -1,8 +1,17 @@
-numpy>=2.4.4
-scipy>=1.17.1
-scikit-learn>=1.4          # root_mean_squared_error requires >= 1.4
+# Runtime dependencies. Every upper bound below is a real incompatibility,
+# not caution — the reason is in the comment next to it.
+
+imputegap                  # datasets and imputation algorithms; nothing runs without it
+numpy>=1.24,<2.5           # numba and sktime require <2.5
+scipy>=1.7,<1.16           # statsforecast requires <1.16
+scikit-learn>=1.4,<1.8     # root_mean_squared_error requires >=1.4; sktime requires <1.8
 statsmodels>=0.14.6
 dtaidistance>=2.4.0
 properscoring>=0.1
 pingouin>=0.6.1
-matplotlib>=3.10.9
+matplotlib>=3.10,<3.11     # 3.11 introduced a dateutil/six import breakage with imputegap
+six>=1.5                   # explicit: required by python-dateutil < 3.x, pulled in by matplotlib
+
+# Development only:
+#   pytest>=7.0
+# or: pip install -e ".[dev]"

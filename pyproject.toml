@@ -1,0 +1,32 @@
+# Packaging metadata. Installing is optional: every stage runs from `src/`
+# without it. `pip install -e .` exists so the modules can be run from any
+# directory, and so `pytest` needs no sys.path manipulation.
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metric-eval"
+version = "1.0.0"
+description = "Comparative analysis of evaluation metrics for time series imputation"
+readme = "README.md"
+requires-python = ">=3.10"
+# Read from requirements.txt rather than repeated here, so the upper bounds and
+# the reasons stated next to them cannot drift apart from what pip installs.
+dynamic = ["dependencies"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+# Listed rather than auto-discovered, so that the generated output directories
+# under src/ (time_series/, plots/, reports/) cannot be picked up as packages.
+packages = ["core", "core.data", "injector", "algo_ranking", "cis"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
