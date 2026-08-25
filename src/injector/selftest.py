@@ -1,21 +1,13 @@
 from __future__ import annotations
 
-import os
 import sys
-
-HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.dirname(HERE)
-if SRC not in sys.path:
-    sys.path.insert(0, SRC)
 
 import numpy as np
 
 from injector import distortions as D
-from injector.calibrate import calibration_table, solve_series
-from injector.config import (
-    DAMAGE_LEVELS, DAMAGE_TOLERANCE, DISTORTIONS, DISTORTION_NAMES, SEED,
-    TARGET_DAMAGE,
-)
+from injector.reactivity.calibrate import calibration_table, solve_series
+from injector.config import (DAMAGE_LEVELS, DISTORTIONS, DISTORTION_NAMES, SEED,
+                             RESPONSE_RATE, TARGET_DAMAGE)
 
 T, N = 1000, 6
 
@@ -34,8 +26,14 @@ def synthetic(seed=0):
     return out
 
 
-def blocks_mask(y, rate=0.4, seed=1):
-    """Mask one contiguous block per series."""
+def mcar_mask(y, rate=0.4, seed=2):
+    """Mask individual positions at random, independently in every series."""
+    rng = np.random.default_rng(seed)
+    return rng.random(y.shape) < rate
+
+
+def scattered_mask(y, rate=0.4, seed=1):
+    """Mask one contiguous block per series, each at its own random start."""
     rng = np.random.default_rng(seed)
     mask = np.zeros(y.shape, dtype=bool)
     length = int(rate * y.shape[0])
@@ -45,10 +43,14 @@ def blocks_mask(y, rate=0.4, seed=1):
     return mask
 
 
-def scattered_mask(y, rate=0.4, seed=2):
-    """Mask individual positions at random."""
+def blackout_mask(y, rate=0.4, seed=3):
+    """Mask one contiguous block at the same position in every series."""
     rng = np.random.default_rng(seed)
-    return rng.random(y.shape) < rate
+    length = int(rate * y.shape[0])
+    start = int(rng.integers(0, y.shape[0] - length))
+    mask = np.zeros(y.shape, dtype=bool)
+    mask[start:start + length, :] = True
+    return mask
 
 
 def check_calibration(y, mask, label, target=TARGET_DAMAGE):
@@ -116,9 +118,9 @@ def check_structural(y, mask):
     return failed
 
 
-def check_sweep_reachable(y, mask):
-    """Check that every distortion can reach every level of the damage sweep."""
-    print("\n### sweep levels reachable")
+def check_response_reachable(y, mask):
+    """Check that every distortion can reach every level of the damage-response curve."""
+    print("\n### damage-response levels reachable")
     bad = []
     for target in DAMAGE_LEVELS:
         for name in DISTORTION_NAMES:
@@ -143,20 +145,20 @@ def check_sweep_reachable(y, mask):
 def main():
     """Run every check on synthetic data. Returns 0 when all of them pass."""
     print("=" * 72)
-    print("INJECTOR v2 SELF-TEST  (synthetic data, no ImputeGAP required)")
+    print("INJECTOR SELF-TEST  (synthetic data, no ImputeGAP required)")
     print("=" * 72)
     y = synthetic()
     print(f"series: {y.shape}, per-series mean {y.mean(0).round(3)}, std {y.std(0).round(3)}")
 
     fails = 0
-    for label, mask in [("blackout-like blocks", blocks_mask(y)),
-                        ("scattered points", scattered_mask(y))]:
+    for label, mask in [("mcar", mcar_mask(y)),
+                        ("scattered", scattered_mask(y)),
+                        ("blackout", blackout_mask(y))]:
         _, cal_fail = check_calibration(y, mask, label)
         fails += len(cal_fail)
 
-    mask = blocks_mask(y)
-    fails += check_structural(y, mask)
-    fails += len(check_sweep_reachable(y, mask))
+    fails += check_structural(y, scattered_mask(y))
+    fails += len(check_response_reachable(y, blackout_mask(y, rate=RESPONSE_RATE)))
 
     print("\n" + "=" * 72)
     print("SELF-TEST PASSED" if fails == 0 else f"SELF-TEST: {fails} problem(s) above")

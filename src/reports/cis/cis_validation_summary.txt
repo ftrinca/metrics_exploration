@@ -1,0 +1,23 @@
+CIS VALIDATION SUMMARY
+======================================================================
+
+All scenarios (ungated)                       n=144  mean=0.755  median=0.920  min=-0.920  %>=0.9= 50.7%
+mcar+scattered, all rates (ungated)           n= 96  mean=0.918  median=0.943  min=-0.116  %>=0.9= 76.0%
+mcar+scattered, 20pct only (ungated)          n= 12  mean=0.984  median=1.000  min=0.928  %>=0.9=100.0%
+Gate applied, survivors only, all scenarios   n= 77  mean=0.951  median=1.000  min=0.500  %>=0.9= 77.9%
+  (67 scenarios had fewer than 3 survivors, so the gate alone resolved them)
+
+COMPONENT SCALE DERIVATION  (mean over Experiment 1's eight calibrated distortions)
+  mae   n= 192  mean=0.4990  median=0.5015   (adopted 0.4964)
+  wd    n= 192  mean=0.3349  median=0.4309   (adopted 0.3338)
+  dtw   n= 192  mean=0.0146  median=0.0115   (adopted 0.0146)
+  mi    n= 192  mean=0.9372  median=0.7666   (adopted 0.94)
+
+GATE THRESHOLD EXPLORATORY CHECK (KDE density valleys, log10 iqr_ratio)
+  bw=0.15  n_nonzero=584
+  flat_valley=np.float64(0.2925899292116379)  (adopted FLAT_THRESHOLD=0.15)
+  unstable_valley=np.float64(2.510822020814593)  (adopted UNSTABLE_THRESHOLD=3.0)
+
+EXCLUDED-SCENARIO BREAKDOWN (scenarios with fewer than 3 gate survivors)
+  n_excluded=67  blackout=48/48
+  failing (scenario,algo) pairs: decisive=304  moderate=81

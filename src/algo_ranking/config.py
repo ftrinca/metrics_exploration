@@ -21,14 +21,14 @@ N_SERIES = 10
 MAX_TIMESTEPS = 2000        # a cap: a shorter dataset keeps its native length
 NORMALIZATION = "z_score"   # idempotent on the already z-scored datasets
 
-# Scenario grid
+# Scenario grid, matching the injector so the two experiments bucket alike.
 PATTERNS = ["mcar", "scattered", "blackout"]
-RATES = [0.2, 0.5, 0.8]     # one representative rate per RANGE_BUCKETS entry
+RATES = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
 
 RANGE_BUCKETS = {
-    "low":    [0.2],
-    "medium": [0.5],
-    "high":   [0.8],
+    "low":    [0.1, 0.2, 0.3],
+    "medium": [0.4, 0.5, 0.6],
+    "high":   [0.7, 0.8],
 }
 
 N_SEEDS = 3                 # independent draws per scenario; score.py averages them
@@ -40,9 +40,9 @@ PLOT_WINDOW_TIMESTEPS = 200 # the start offset is chosen per scenario by visuali
 # The 8 metrics kept from the metric-evaluation part, two per category.
 ALGO_CATEGORIES: dict[str, list[str]] = {
     "Pointwise Distance":      ["mae", "rmse"],
-    "Statistical Agreement":   ["r2", "mi"],
     "Distributional Divergence": ["wd", "jsd"],
     "Temporal Structure":      ["dtw", "smae"],
+    "Statistical Agreement":   ["r2", "mi"],
 }
 
 ALGO_METRICS: list[str] = [m for cat in ALGO_CATEGORIES.values() for m in cat]

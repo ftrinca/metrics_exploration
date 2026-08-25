@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import zlib
+
 import numpy as np
 from scipy.ndimage import uniform_filter1d
 
@@ -26,7 +28,7 @@ def damage(y_col: np.ndarray, idx: np.ndarray, values: np.ndarray) -> float:
 
 def _rng(seed: int, name: str) -> np.random.Generator:
     """Deterministic generator for one (seed, distortion) pair."""
-    return np.random.default_rng(seed + (abs(hash(name)) % 100_000))
+    return np.random.default_rng(seed + (zlib.crc32(name.encode()) % 100_000))
 
 
 def noise(y_col, idx, severity, seed):
@@ -42,12 +44,7 @@ def bias(y_col, idx, severity, seed):
 
 
 def reorder(y_col, idx, severity, seed):
-    """Cyclically permute a fraction `severity` of the gap positions.
-
-    The permutation order is drawn once and is independent of the fraction, and
-    the chosen subset is rotated rather than randomly permuted, which keeps
-    damage a smooth function of the fraction.
-    """
+    """Cyclically permute a fraction `severity` of the gap positions."""
     vals = y_col[idx].copy()
     n = vals.size
     k = int(round(float(severity) * n))
@@ -68,11 +65,7 @@ def discretise(y_col, idx, severity, seed):
 
 
 def lag(y_col, idx, severity, seed):
-    """Replace each missing value with the true value `severity` steps earlier.
-
-    The lag may be fractional, linearly interpolating between the two
-    neighbouring integer lags.
-    """
+    """Replace each missing value with the true value `severity` steps earlier."""
     n_timesteps = y_col.size
     shift = float(severity)
     lo = int(np.floor(shift))
@@ -85,10 +78,7 @@ def lag(y_col, idx, severity, seed):
 
 
 def smooth(y_col, idx, severity, seed):
-    """Substitute a moving average of width `severity` at the missing positions.
-
-    The window may be fractional, blending the two neighbouring integer widths.
-    """
+    """Substitute a moving average of width `severity` at the missing positions."""
     w = max(1.0, float(severity))
     lo = int(np.floor(w))
     frac = w - lo

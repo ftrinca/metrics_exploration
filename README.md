@@ -1,8 +1,7 @@
-# metric_eval
+# Comparative Analysis of Evaluation Metrics for Time Series Imputation
 
-Code and results for the experiments in *Comparative Analysis of Evaluation
-Metrics for Time Series Imputation* (Master's thesis, Swiss Joint Master of
-Computer Science, Universities of Bern, Fribourg and Neuchâtel).
+Code and results for the experiments in a Master's thesis of the Swiss Joint
+Master of Computer Science, Universities of Bern, Fribourg and Neuchâtel.
 
 Three experiments, run in order:
 
@@ -71,18 +70,18 @@ trustworthy.
 or stage by stage:
 
 ```bash
-python -m injector.calibrate            # solve severities  -> calibration.json
-python -m injector.build                # apply them        -> data.json
-python -m injector.score                # all 20 metrics    -> scores.json
-python -m injector.aggregate            # tables, heatmaps, invariance checks
+python -m injector.reactivity.calibrate   # solve severities  -> calibration.json
+python -m injector.reactivity.build       # apply them        -> data.json
+python -m injector.reactivity.score       # all 20 metrics    -> scores.json
+python -m injector.reactivity.aggregate   # tables, heatmaps, invariance checks
 
-python -m injector.build_sweep          # the same eight across seven damage levels
-python -m injector.score_sweep
-python -m injector.aggregate_sweep
+python -m injector.response.build         # the same eight across seven damage levels
+python -m injector.response.score
+python -m injector.response.aggregate
 ```
 
-Read `injector/README.md` for the design and for why each distortion is
-defined the way it is.
+The design behind this experiment, and the reason each distortion is defined
+the way it is, is in [The Injector design](#the-injector-design) below.
 
 ### Experiment 2 — Algorithm ranking
 
@@ -113,7 +112,7 @@ re-run freely afterwards without touching it.
 or:
 
 ```bash
-python -m cis.cis
+python -m cis
 ```
 
 Reads the scores Experiment 2 produced, so it needs that to have run first.
@@ -150,17 +149,17 @@ says so.
 
 ```
 plots/
-├── injector/equal_damage/       metric x distortion heatmaps, one per condition,
+├── injector/reactivity/         metric x distortion heatmaps, one per condition,
 │                                plus metric_overview.png and condition_grid.png
-├── injector/damage_sweep/       one panel per metric, all eight distortions on
+├── injector/response/           one panel per metric, all eight distortions on
 │                                a shared damage axis
 ├── algo_ranking/<dataset>/heatmap/<pattern>_<bucket>.png
 ├── algo_ranking/<dataset>/reconstruction/<pattern>_<rate>pct.png
 └── cis/                         gate distribution, CIS against the 8-metric consensus
 
 reports/
-├── injector/equal_damage/       raw value tables, metric agreement, invariance checks
-├── injector/damage_sweep/       flat / monotonic / non-monotonic per metric
+├── injector/reactivity/         raw value tables, metric agreement, invariance checks
+├── injector/response/           flat / monotonic / non-monotonic per metric
 ├── algo_ranking/<dataset>/<pattern>_<bucket>.txt
 └── cis/                         validation, supporting experiments, rejected constructions
 
@@ -181,9 +180,9 @@ categories and assigns a direction:
 
 | Category | Metrics |
 |---|---|
-| Pointwise Error | MAE, RMSE, MSE, MRE, sMAPE, nRMSE, ND |
-| Distributional | WD, JSD, KLD |
-| Temporal / Shape | ACF, DTW, sMAE |
+| Pointwise Distance | MAE, RMSE, MSE, MRE, sMAPE, nRMSE, ND |
+| Distributional Divergence | WD, JSD, KLD |
+| Temporal Structure | ACF, DTW, sMAE |
 | Statistical Agreement | Pearson, MI, R², TOST, BA, CDT |
 | Domain-specific | PFC |
 
@@ -214,6 +213,114 @@ raises rather than being silently ranked the wrong way round.
 
 ---
 
+## The Injector design
+
+Experiment 1 applies eight distortions to the same series, each damaging the
+reconstruction in a different way, and scores every metric against all eight.
+The comparison only means something if the eight are equally damaging: a metric
+that reacts more strongly to one distortion than another has told us nothing if
+that distortion was simply larger. Each distortion is therefore applied at a
+severity solved numerically so that all eight land on the same mean absolute
+error at the masked positions, in units of that series' own sigma. With size
+held constant, any variation left in a metric is variation in kind.
+
+### What the design rests on
+
+**MAE is pinned and RMSE is not.** Because the calibration solves against mean
+absolute error, MAE reads almost identically for all eight distortions. That is
+the intended outcome rather than a weakness: MAE's row is the control that shows
+the calibration worked. RMSE is left free, since it depends on how the error is
+distributed across positions rather than only on its mean, and the two therefore
+separate. In a representative run RMSE reads 0.40 under `bias` and 1.76 under
+`spikes` at identical MAE, which is a clean result about error weighting.
+
+**Each distortion declares what it leaves exactly intact.** A distortion that
+preserves the multiset of values cannot move any statistic computed from the
+value distribution alone, so WD, JSD and KLD must read exactly zero. One that
+preserves the mean cannot move Bland-Altman or Cohen's d. A positive-slope
+affine transform cannot move Pearson from 1.0. These are predictions implied by
+the structure of each distortion, not observations, and `injector/invariance.py`
+turns each one into an assertion that the aggregate report prints as a pass/fail
+table. A failure means either the distortion is not doing what it claims or the
+metric implementation is wrong.
+
+**The sweep runs on damage rather than on each distortion's own parameter.**
+Sweeping a lag over timesteps and a smoothing window over widths would give
+eight incomparable x-axes needing eight separate figures. Sweeping the damage
+itself puts all eight on one axis, so a single panel answers which kind of
+damage a given metric is blind to. A metric that stays flat across a whole sweep
+is blind to that kind of damage, rather than merely reacting weakly to a smaller
+one.
+
+### The eight distortions
+
+| distortion | what it disturbs | severity | preserves exactly |
+|---|---|---|---|
+| `noise` | pointwise accuracy, at random | noise sd / σ | — |
+| `bias` | pointwise accuracy, systematically | offset / σ | affine |
+| `reorder` | order in time | fraction of gap positions rotated | multiset, mean |
+| `discretise` | shape of the value distribution | grid step / σ | rank |
+| `lag` | alignment in time | lag in timesteps | — |
+| `smooth` | short-term detail and variance | moving-average window | — |
+| `spikes` | the tails, leaving most values exact | spike magnitude / σ | — |
+| `rescale` | variance, leaving shape intact | scale factor − 1 | affine, mean |
+
+Two of the definitions are chosen for the solver rather than for convention.
+`discretise` rounds onto a uniform grid instead of clustering, because a cluster
+count is an integer that bottoms out at 2 while a grid step is continuous, and
+because rounding depends on no fitted model and so is exactly reproducible.
+`reorder` rotates a fraction of the gap positions instead of shuffling within a
+window. Both approaches preserve the value multiset, which is what makes the
+WD/JSD/KLD invariance exact, but only a fraction maps directly onto damage: a
+random permutation leaves an unpredictable number of values in place, which
+turns damage into a noisy step function that bisection cannot solve. The
+rotation is what makes the knob usable.
+
+`lag` and `smooth` are continuous, interpolating between neighbouring integer
+values, because damage jumps between consecutive integers by far more than the
+calibration tolerance. At whole numbers each is exactly the ordinary definition.
+
+### Things worth knowing
+
+**Ceilings.** Smoothing cannot exceed E|y − μ| ≈ 0.8 σ however wide the window,
+and reordering cannot exceed E|yᵢ − yⱼ| ≈ 1.13 σ even at a full rotation.
+`TARGET_DAMAGE` at 0.5 σ sits comfortably under both, and every solve reports
+whether it reached its target rather than silently clipping. Clipping would
+quietly turn the target into "as damaged as this distortion can be" for some of
+the eight and not for others, which is precisely the confound the equalisation
+exists to remove.
+
+The top of `DAMAGE_LEVELS` is a different matter. On airq under a 40 % blackout,
+`discretise` tops out at 0.66 σ and `smooth` at 0.66 σ, so both fall about
+0.04 σ short of the 0.7 level and the sweep's shared axis does not hold at its
+last point. Every mono / non-monotonic / flat verdict in the report is
+unchanged when that level is dropped, so the conclusions stand, but a figure
+that plots the level as equal damage overstates what was achieved. The
+`achieved` field cached beside each level records what each distortion actually
+reached.
+
+**Smoothing is not monotone in its window.** On a series with a slow drift a very
+wide moving average can sit closer to the truth than a middling one, so damage
+rises, falls and rises again. Both `lag` and `smooth` therefore use a
+scan-then-bisect solver rather than plain bisection, which would land on
+whichever root it happened to bracket.
+
+**The tolerance is 0.01 σ, and `reorder` is why.** The number of rotated
+positions is an integer, so reorder's damage moves in steps of roughly
+|yᵢ − yⱼ| / n, and for an unlucky pair a single step is about 0.01 σ. Everything
+else lands one to two orders of magnitude inside that. Per-series achieved
+damage is recorded either way, so nothing is hidden by the choice.
+
+**Run `python -m injector.selftest` before trusting a run.** It checks the two
+things the design rests on: that every distortion can actually be solved to the
+target on this data, and that the declared structural invariants hold at the
+array level, before any metric is involved. If a target turns out to be
+unreachable, that is the signal to lower `config.TARGET_DAMAGE` rather than to
+work around it, because the experiment is not equalised if one distortion cannot
+reach the target.
+
+---
+
 ## Layout
 
 ```
@@ -230,6 +337,7 @@ src/
 │   │                         and directions
 │   ├── scoring.py            compute_all_scores — every metric, every reconstruction
 │   ├── ranking.py            rank_algorithms
+│   ├── buckets.py            the rate-bucket mean both experiments use
 │   ├── missingness_patterns.py
 │   ├── dataset_io.py         (T, N) arrays <-> the [series][timestep] JSON cache
 │   └── data/                 ground-truth loading and normalisation
@@ -237,24 +345,35 @@ src/
 ├── injector/                 Experiment 1
 │   ├── config.py             single source of truth for the design
 │   ├── distortions.py        the eight distortions
-│   ├── calibrate.py          solves each severity to a common damage target
-│   ├── build.py  score.py  aggregate.py
-│   ├── build_sweep.py  score_sweep.py  aggregate_sweep.py
-│   ├── analysis.py           spread, z-scores, metric agreement
-│   ├── invariance.py         machine-checked exact predictions
-│   ├── plotting.py
 │   ├── selftest.py
-│   └── README.md             the design, and why it is what it is
+│   ├── reactivity/           one damage level, eight kinds, 24 scenarios
+│   │   ├── calibrate.py      solves each severity to a common damage target
+│   │   ├── build.py  score.py  aggregate.py
+│   │   ├── analysis.py       spread, z-scores, metric agreement
+│   │   ├── invariance.py     machine-checked exact predictions
+│   │   └── plotting.py
+│   └── response/             seven damage levels, one scenario
+│       ├── build.py  score.py  aggregate.py
+│       └── plotting.py
 │
 ├── algo_ranking/             Experiment 2
 │   ├── config.py             datasets, algorithms, the kept metric set
 │   ├── algorithms.py         the six ImputeGAP algorithms
 │   ├── build.py  score.py  aggregate.py
 │   ├── _run_algorithm.py     one algorithm in one subprocess
-│   ├── ranking_report.py  plotting.py  visualize.py
+│   ├── cache.py              reading a scenario back from disk
+│   ├── analysis.py           ranks, consensus, agreement
+│   ├── report.py             the text ranking summary
+│   ├── plotting.py  visualize.py
 │
 ├── cis/                      Experiment 3
-│   └── cis.py                gate, score, validation, rejected constructions
+│   ├── config.py             components, scales, gate thresholds
+│   ├── gate.py               stability gate and the composite score
+│   ├── injector_data.py      reads Experiment 1's two caches
+│   ├── validation.py         agreement with the 8-metric panel
+│   ├── experiments.py        the design choices behind CIS
+│   ├── plotting.py
+│   └── __main__.py           `python -m cis`
 │
 └── time_series/  plots/  reports/       generated output
 

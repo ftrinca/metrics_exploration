@@ -1,6 +1,5 @@
 import argparse
 import json
-import sys
 
 import numpy as np
 
@@ -8,11 +7,7 @@ from algo_ranking import algorithms
 
 
 def main() -> None:
-    """Run one algorithm on a pre-computed (y_true, mask) pair and write its reconstruction.
-
-    Spawned by build.py, one fresh process per algorithm. Invoked as
-    `python -m algo_ranking._run_algorithm`, not run directly.
-    """
+    """Run one algorithm on a pre-computed (y_true, mask) pair and write its reconstruction."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--input", required=True,
@@ -31,11 +26,9 @@ def main() -> None:
     y_true_t = np.array(data["y_true"])
     mask_t = np.array(data["mask"])
 
-    results = algorithms.build(y_true_t, mask_t, seed=args.seed, only={args.algo})
+    recov = algorithms.build(y_true_t, mask_t, args.algo, seed=args.seed)
 
-    out = {}
-    if args.algo in results:
-        out["result"] = results[args.algo].tolist()
+    out = {} if recov is None else {"result": recov.tolist()}
     with open(args.output, "w") as f:
         json.dump(out, f)
 

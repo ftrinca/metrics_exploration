@@ -3,7 +3,7 @@
 # Experiment 3 reads Experiment 2's scores, and its supporting analyses read
 # Experiment 1's.
 #
-# Dominated by Experiment 2's build stage, so expect hours rather than minutes.
+# Dominated by Experiment 2's build stage.
 
 source "$(dirname "${BASH_SOURCE[0]}")/_run_common.sh"
 parse_args "$@"

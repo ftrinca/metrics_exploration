@@ -113,10 +113,7 @@ def acf(y_true, y_pred):
 
 
 def tost(y_true, y_pred, epsilon=None):
-    """Two one-sided equivalence test, returning the binding p-value, so lower is better.
-
-    epsilon defaults to 10% of std(y_true).
-    """
+    """Two one-sided equivalence test, returning the binding p-value, so lower is better"""
     if epsilon is None:
         epsilon = 0.1 * float(np.std(y_true))
     with warnings.catch_warnings():
@@ -162,6 +159,7 @@ def dtw(y_true, y_pred):
         y_true.astype(np.float64),
         y_pred.astype(np.float64),
         window=window,
+        use_c=True,
     )
 
 

@@ -1,0 +1,33 @@
+DAMAGE RESPONSE — blackout, 40% missing
+================================================================================================
+damage levels (MAE / sigma): [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+cells: mono = rises with damage, NON-mono = does not, FLAT = never moves
+------------------------------------------------------------------------------------------------
+metric          noise       bias    reorder  discretis        lag     smooth     spikes    rescale
+------------------------------------------------------------------------------------------------
+Pointwise Distance
+  mae            mono       mono       mono       mono       mono       mono       mono       mono
+  rmse           mono       mono       mono       mono       mono       mono       mono       mono
+  mse            mono       mono       mono       mono       mono       mono       mono       mono
+  mre            mono       mono       mono       mono       mono   NON-mono       mono       mono
+  smape          mono       mono       mono       mono       mono       mono       mono       mono
+  nrmse          mono       mono       mono       mono       mono       mono       mono       mono
+  nd             mono       mono       mono       mono       mono       mono       mono       mono
+Distributional Divergence
+  wd             mono       mono       FLAT       mono       mono       mono       mono       mono
+  jsd            mono       mono       FLAT   NON-mono   NON-mono       mono   NON-mono       mono
+  kld            mono       mono       FLAT   NON-mono   NON-mono       mono   NON-mono       mono
+Temporal Structure
+  acf            mono       mono       mono       mono   NON-mono   NON-mono       mono       mono
+  dtw            mono       mono       mono       mono   NON-mono       mono       mono       mono
+  smae           mono       mono       mono       mono       mono       mono       mono       mono
+Statistical Agreement
+  pearson        mono       FLAT       mono       mono       mono       mono       mono       FLAT
+  mi             mono   NON-mono       mono       mono       mono       mono       mono   NON-mono
+  r2             mono       mono       mono       mono       mono       mono       mono       mono
+  tost           mono       mono       mono   NON-mono       mono       mono       mono       mono
+  ba             mono       mono       FLAT   NON-mono       mono   NON-mono       mono   NON-mono
+  cdt            mono       mono       FLAT       mono       mono   NON-mono       mono   NON-mono
+------------------------------------------------------------------------------------------------
+Monotonic in all eight: MAE, RMSE, MSE, sMAPE, nRMSE, ND, sMAE, R²
+Fewest monotonic sweeps: BA (4/8), JSD (4/8), KLD (4/8), CDT (5/8), ACF (6/8)

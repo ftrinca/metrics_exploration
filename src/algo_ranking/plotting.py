@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from algo_ranking.config import ALGO_CATEGORIES, ALGO_METRICS, label
-from algo_ranking.ranking_report import category_consensus, global_consensus
 from core.ranking import competition_rank
 
 
@@ -16,13 +15,7 @@ def plot_reconstruction(
     output_path: str,
     figsize: tuple = (14, 7),
 ) -> None:
-    """Plot every algorithm's imputed values over the true signal for one series.
-
-    y_true and mask are 1-D, already reduced to one series and one window by the
-    caller; imputations maps {algo_name: 1-D reconstruction} of the same length.
-    The y-axis is clipped to the ground truth's range plus padding, and any
-    algorithm leaving the visible range is named below the plot.
-    """
+    """Plot every algorithm's imputed values over the true signal for one series."""
     fig, ax = plt.subplots(figsize=figsize)
 
     indices = np.where(mask)[0]
@@ -87,19 +80,15 @@ def plot_reconstruction(
 
 def plot_algo_ranking_heatmap(
     rank_matrix: dict[str, dict[str, float]],
+    algos: list[str],
     title: str,
     output_path: str,
     figsize: tuple = (12, 6),
 ) -> None:
     """Draw the algorithm x metric rank heatmap, rank 1 = best.
 
-    Rows are sorted best to worst by global consensus and columns grouped by
-    category. Cells show competition ranks, which is display-only and feeds back
-    into no aggregation.
+    `algos` is the row order, best to worst, computed once by the caller.
     """
-    cat_consensus = category_consensus(rank_matrix)
-    glob_consensus = global_consensus(cat_consensus)
-    algos = [a for a, _ in sorted(glob_consensus.items(), key=lambda x: x[1])]
     n_algos = len(algos)
     n_metrics = len(ALGO_METRICS)
 

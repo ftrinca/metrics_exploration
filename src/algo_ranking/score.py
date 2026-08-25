@@ -1,53 +1,28 @@
 import argparse
 import json
 import os
-import sys
-
-HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.dirname(HERE)
-if SRC not in sys.path:
-    sys.path.insert(0, SRC)
 
 import numpy as np
 
 from core.metric_config import METRIC_LIST
+from core.buckets import subjects_present
 from core.scoring import compute_all_scores
 
+from algo_ranking import cache
 from algo_ranking.algorithms import ALGORITHMS
 from algo_ranking.config import (
-    ALGO_METRICS, DATASETS, N_SEEDS, PATTERNS, RATES, rate_dir, seed_dir,
+    ALGO_METRICS, DATASETS, N_SEEDS, PATTERNS, RATES, rate_dir,
 )
-
-
-def _load_built(dataset: str, pattern: str, rate: float, seed: int) -> dict:
-    """Read one seed's cached reconstructions."""
-    data_path = os.path.join(seed_dir(dataset, pattern, rate, seed), "data.json")
-    if not os.path.exists(data_path):
-        raise FileNotFoundError(
-            f"Missing {data_path} - run algo_ranking/build.py for "
-            f"dataset={dataset!r} pattern={pattern!r} rate={rate} seed={seed} first."
-        )
-    with open(data_path) as f:
-        return json.load(f)
 
 
 def _average_scores(
     per_seed_scores: list[dict[str, dict[str, float | None]]],
 ) -> dict[str, dict[str, float | None]]:
-    """Average across seeds per (metric, algorithm).
-
-    None means the algorithm failed on that draw and is left out of the mean; an
-    algorithm that failed on every draw averages to None. The algorithm list is
-    the union across seeds, in ALGORITHMS order, so a stochastic algorithm that
-    failed on one draw is not dropped entirely.
-    """
-    present: set[str] = set()
-    for s in per_seed_scores:
-        for per_algo in s.values():
-            present.update(per_algo.keys())
-    algos = [name for name, _, _ in ALGORITHMS if name in present]
-
+    """Average across seeds per (metric, algorithm)."""
     metrics = [k for k in METRIC_LIST if k in per_seed_scores[0]]
+    by_seed = dict(enumerate(per_seed_scores))
+    algos = subjects_present(by_seed, list(by_seed), metrics,
+                             [name for name, _, _ in ALGORITHMS])
 
     averaged: dict[str, dict[str, float | None]] = {}
     for metric in metrics:
@@ -62,11 +37,7 @@ def _average_scores(
 
 
 def score_one(dataset: str, pattern: str, rate: float, force: bool = False) -> dict:
-    """Score one scenario from its cached builds, returning {metric: {algo: score}}.
-
-    Every metric is stored, not only the ones config.ALGO_CATEGORIES selects, so
-    a later change to the selection is an aggregate pass rather than a re-score.
-    """
+    """Score one scenario from its cached builds, returning {metric: {algo: score}}."""
     scores_path = os.path.join(rate_dir(dataset, pattern, rate), "scores.json")
     if not force and os.path.exists(scores_path):
         with open(scores_path) as f:
@@ -74,14 +45,9 @@ def score_one(dataset: str, pattern: str, rate: float, force: bool = False) -> d
 
     per_seed_scores = []
     for seed in range(N_SEEDS):
-        built = _load_built(dataset, pattern, rate, seed)
-        y_true_t = np.array(built["y_true"])
-        mask_t = np.array(built["mask"])
-        reconstructions = {
-            name: np.array(built[name])
-            for name in built if name not in ("y_true", "mask")
-        }
-        scores = compute_all_scores(y_true_t, reconstructions, mask=mask_t)
+        built = cache.load_scenario(dataset, pattern, rate, seed)
+        scores = compute_all_scores(built["y_true"], cache.reconstructions(built),
+                                    mask=built["mask"])
         per_seed_scores.append(scores)
 
     averaged = _average_scores(per_seed_scores)
@@ -99,12 +65,7 @@ def missing_metrics(scores: dict) -> list[str]:
 
 
 def ensure_scored(dataset: str, pattern: str, rate: float) -> dict:
-    """Return the scores for one scenario, computing whatever is missing.
-
-    A cache written before the metric set changed has only the absent metrics
-    computed and merged in, so changing one metric does not cost a full
-    re-score.
-    """
+    """Return the scores for one scenario, computing whatever is missing."""
     scores_path = os.path.join(rate_dir(dataset, pattern, rate), "scores.json")
     if not os.path.exists(scores_path):
         return score_one(dataset, pattern, rate)
@@ -119,15 +80,10 @@ def ensure_scored(dataset: str, pattern: str, rate: float) -> dict:
     print(f"   topping up {rate_dir(dataset, pattern, rate)}: {', '.join(absent)}")
     per_seed: list[dict] = []
     for seed in range(N_SEEDS):
-        built = _load_built(dataset, pattern, rate, seed)
-        y_true_t = np.array(built["y_true"])
-        mask_t = np.array(built["mask"])
-        reconstructions = {
-            name: np.array(built[name])
-            for name in built if name not in ("y_true", "mask")
-        }
+        built = cache.load_scenario(dataset, pattern, rate, seed)
         per_seed.append(
-            compute_all_scores(y_true_t, reconstructions, mask=mask_t, metric_names=absent)
+            compute_all_scores(built["y_true"], cache.reconstructions(built),
+                               mask=built["mask"], metric_names=absent)
         )
 
     scores.update(_average_scores(per_seed))
@@ -139,11 +95,7 @@ def ensure_scored(dataset: str, pattern: str, rate: float) -> dict:
 def score_phase(
     datasets: list[str], patterns: list[str], rates: list[float], force: bool = False,
 ) -> None:
-    """Score every (dataset, pattern, rate) from cached builds.
-
-    Without force this goes through ensure_scored, so a cache predating a change
-    to config.ALGO_CATEGORIES is topped up instead of being skipped as complete.
-    """
+    """Score every (dataset, pattern, rate) from cached builds."""
     for dataset in datasets:
         print(f"=== dataset: {dataset} " + "=" * 50)
         for pattern in patterns:
@@ -158,7 +110,7 @@ def score_phase(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Algorithm Ranking (Part 2) — score phase.")
+    parser = argparse.ArgumentParser(description="Algorithm ranking — score phase.")
     parser.add_argument("--datasets", nargs="+", default=DATASETS, choices=DATASETS)
     parser.add_argument("--patterns", nargs="+", default=PATTERNS, choices=PATTERNS)
     parser.add_argument("--rates", nargs="+", type=float, default=RATES, choices=RATES)

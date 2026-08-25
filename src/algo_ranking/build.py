@@ -6,10 +6,7 @@ import sys
 import tempfile
 import time
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.dirname(HERE)
-if SRC not in sys.path:
-    sys.path.insert(0, SRC)
+SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 import numpy as np
 
@@ -17,21 +14,17 @@ import core.dataset_io as dataset_io
 from core.data import normalization, real_world_ground_truth
 from core.missingness_patterns import make_mask
 
-from algo_ranking import algorithms
+from algo_ranking import algorithms, cache
 from algo_ranking.config import (
     DATASETS, MAX_TIMESTEPS, N_SEEDS, N_SERIES, NORMALIZATION, PATTERNS,
-    RATES, rate_dir, seed_dir,
+    RATES,
 )
 
 
 def _run_algorithms_isolated(
     y_true_t: np.ndarray, mask_t: np.ndarray, seed: int, algo_names: set[str],
 ) -> dict[str, np.ndarray]:
-    """Run each algorithm in its own subprocess and return {algo_name: array}.
-
-    An algorithm whose subprocess crashed or failed is absent from the result,
-    the same contract algorithms.build() offers.
-    """
+    """Run each algorithm in its own subprocess and return {algo_name: array}."""
     ordered_names = [name for name, _, _ in algorithms.ALGORITHMS if name in algo_names]
     results: dict[str, np.ndarray] = {}
 
@@ -72,22 +65,15 @@ def load_ground_truth(dataset: str) -> np.ndarray:
     return normalization.apply_normalization(y_true, NORMALIZATION)
 
 
-def _deterministic_cache_path(dataset: str, pattern: str, rate: float) -> str:
-    """Path of the mask and deterministic reconstructions shared by every seed."""
-    return os.path.join(rate_dir(dataset, pattern, rate), "deterministic.json")
-
-
 def build_deterministic(
     dataset: str, pattern: str, rate: float, y_true: np.ndarray, force: bool = False,
 ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """Build, or load, the mask and DETERMINISTIC_ALGORITHMS reconstructions of one scenario.
 
-    Caching the mask is what guarantees every seed of a scenario uses the same
-    one, since make_mask takes no seed. Returns (mask, reconstructions), the
-    mask as (n_timesteps, n_series) and the reconstructions in native
-    (n_series, n_timesteps) orientation.
+    Caching the mask guarantees every seed of a scenario uses the same one, since make_mask takes no seed.
+    Returns (mask, reconstructions), the mask as (n_timesteps, n_series) and the reconstructions in native (n_series, n_timesteps) orientation.
     """
-    det_path = _deterministic_cache_path(dataset, pattern, rate)
+    det_path = cache.deterministic_path(dataset, pattern, rate)
     if not force and os.path.exists(det_path):
         with open(det_path) as f:
             cached = json.load(f)
@@ -96,7 +82,8 @@ def build_deterministic(
             f"cached mask shape {mask.shape} != y_true shape {y_true.shape} "
             f"in {det_path} - stale cache from a different dataset config?"
         )
-        reconstructions = {name: np.array(mat) for name, mat in cached.items() if name != "mask"}
+        reconstructions = {name: np.array(mat) for name, mat in cached.items()
+                           if name not in ("mask", "y_true")}
         print(f"   SKIP (already built): {det_path}")
         return mask, reconstructions
 
@@ -107,7 +94,10 @@ def build_deterministic(
         y_true_t, mask_t, seed=0, algo_names=algorithms.DETERMINISTIC_ALGORITHMS,
     )
 
-    json_out = {"mask": dataset_io.bool_matrix_to_mask(mask)}
+    json_out = {
+        "y_true": dataset_io.matrix_to_lists(y_true),
+        "mask": dataset_io.bool_matrix_to_mask(mask),
+    }
     for name, mat in reconstructions.items():
         json_out[name] = dataset_io.matrix_to_lists(mat.T)
     dataset_io.save_dataset(det_path, json_out)
@@ -116,29 +106,18 @@ def build_deterministic(
 
 
 def build_one(
-    dataset: str, pattern: str, rate: float, seed: int, y_true: np.ndarray, mask: np.ndarray,
-    deterministic: dict[str, np.ndarray], force: bool = False,
+    dataset: str, pattern: str, rate: float, seed: int, y_true: np.ndarray,
+    mask: np.ndarray, force: bool = False,
 ) -> None:
-    """Draw this seed's stochastic reconstructions, merge in the deterministic ones, and cache."""
-    data_path = os.path.join(seed_dir(dataset, pattern, rate, seed), "data.json")
+    """Draw and cache this seed's stochastic reconstructions."""
+    data_path = cache.seed_path(dataset, pattern, rate, seed)
     if not force and os.path.exists(data_path):
         print(f"   SKIP (already built): {data_path}")
         return
 
-    y_true_t = y_true.T
-    mask_t = mask.T
+    stochastic = _run_algorithms_isolated(y_true.T, mask.T, seed=seed, algo_names=algorithms.STOCHASTIC_ALGORITHMS)
 
-    stochastic = _run_algorithms_isolated(
-        y_true_t, mask_t, seed=seed, algo_names=algorithms.STOCHASTIC_ALGORITHMS,
-    )
-    reconstructions = {**deterministic, **stochastic}
-
-    json_out = {
-        "y_true": dataset_io.matrix_to_lists(y_true),
-        "mask": dataset_io.bool_matrix_to_mask(mask),
-    }
-    for name, mat in reconstructions.items():
-        json_out[name] = dataset_io.matrix_to_lists(mat.T)
+    json_out = {name: dataset_io.matrix_to_lists(mat.T) for name, mat in stochastic.items()}
     dataset_io.save_dataset(data_path, json_out)
     print(f"   built -> {data_path}")
 
@@ -146,19 +125,15 @@ def build_one(
 def build_rate(dataset: str, pattern: str, rate: float, force: bool = False) -> None:
     """Build one full (dataset, pattern, rate) unit: ground truth, shared mask, then each seed."""
     y_true = load_ground_truth(dataset)
-    mask, deterministic = build_deterministic(dataset, pattern, rate, y_true, force=force)
+    mask, _ = build_deterministic(dataset, pattern, rate, y_true, force=force)
     for seed in range(N_SEEDS):
-        build_one(dataset, pattern, rate, seed, y_true, mask, deterministic, force=force)
+        build_one(dataset, pattern, rate, seed, y_true, mask, force=force)
 
 
 def build_phase(
     datasets: list[str], patterns: list[str], rates: list[float], force: bool = False,
 ) -> None:
-    """Build every (dataset, pattern, rate) unit, caching to disk as it goes.
-
-    Safe to call repeatedly with different subsets, since an already-cached
-    combination is skipped.
-    """
+    """Build every (dataset, pattern, rate) unit, caching to disk as it goes."""
     for dataset in datasets:
         for pattern in patterns:
             for rate in rates:
@@ -168,7 +143,7 @@ def build_phase(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Algorithm Ranking (Part 2) — build phase.")
+    parser = argparse.ArgumentParser(description="Algorithm ranking — build phase.")
     parser.add_argument("--datasets", nargs="+", default=DATASETS, choices=DATASETS)
     parser.add_argument("--patterns", nargs="+", default=PATTERNS, choices=PATTERNS)
     parser.add_argument("--rates", nargs="+", type=float, default=RATES, choices=RATES)

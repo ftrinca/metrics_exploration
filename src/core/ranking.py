@@ -34,10 +34,7 @@ def rank_algorithms(metric_scores: dict[str, float | None], direction: str) -> d
 
 
 def competition_rank(avg_ranks: dict[str, float]) -> dict[str, int]:
-    """Convert average ranks into competition ranking, e.g. 1, 1, 1, 1, 5 for a 4-way tie.
-
-    Display only. Every numeric aggregation uses rank_algorithms' average ranks.
-    """
+    """Convert average ranks into competition ranking. Display only. Every numeric aggregation uses rank_algorithms' average ranks."""
     ordered = sorted(avg_ranks.items(), key=lambda x: x[1])
     comp: dict[str, int] = {}
     i, n = 0, len(ordered)

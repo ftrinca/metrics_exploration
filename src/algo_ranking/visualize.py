@@ -1,19 +1,12 @@
 import argparse
-import json
 import os
-import sys
-
-HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.dirname(HERE)
-if SRC not in sys.path:
-    sys.path.insert(0, SRC)
 
 import numpy as np
 
+from algo_ranking import cache
 from algo_ranking.config import (
     reconstruction_dir,
-    DATASETS, PATTERNS, PLOT_DIR, PLOT_SERIES_INDEX,
-    PLOT_WINDOW_TIMESTEPS, RATES, seed_dir,
+    DATASETS, PATTERNS, PLOT_SERIES_INDEX, PLOT_WINDOW_TIMESTEPS, RATES,
 )
 from algo_ranking.plotting import plot_reconstruction
 
@@ -43,20 +36,10 @@ def _choose_window(mask_series: np.ndarray, window_size: int, n_timesteps: int) 
 
 def visualize_one(dataset: str, pattern: str, rate: float, seed: int = 0) -> None:
     """Plot one scenario's reconstructions for the series at config.PLOT_SERIES_INDEX."""
-    data_path = os.path.join(seed_dir(dataset, pattern, rate, seed), "data.json")
-    if not os.path.exists(data_path):
-        raise FileNotFoundError(
-            f"Missing {data_path} - run algo_ranking/build.py for "
-            f"dataset={dataset!r} pattern={pattern!r} rate={rate} seed={seed} first."
-        )
-    with open(data_path) as f:
-        built = json.load(f)
-
-    y_true = np.array(built["y_true"])
-    mask = np.array(built["mask"])
-    reconstructions = {
-        name: np.array(built[name]) for name in built if name not in ("y_true", "mask")
-    }
+    built = cache.load_scenario(dataset, pattern, rate, seed)
+    y_true = built["y_true"]
+    mask = built["mask"]
+    reconstructions = cache.reconstructions(built)
 
     n_series, n_timesteps = y_true.shape
     series_idx = PLOT_SERIES_INDEX if PLOT_SERIES_INDEX < n_series else 0
@@ -92,7 +75,7 @@ def visualize_phase(datasets: list[str], patterns: list[str], rates: list[float]
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Algorithm Ranking (Part 2) — reconstruction plots.")
+    parser = argparse.ArgumentParser(description="Algorithm ranking — reconstruction plots.")
     parser.add_argument("--datasets", nargs="+", default=DATASETS, choices=DATASETS)
     parser.add_argument("--patterns", nargs="+", default=PATTERNS, choices=PATTERNS)
     parser.add_argument("--rates", nargs="+", type=float, default=RATES, choices=RATES)

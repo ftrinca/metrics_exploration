@@ -1,5 +1,3 @@
-# Shared by the four run_*.sh scripts. Sourced, not executed.
-#
 # Every script runs from src/ whatever directory it was invoked from, so that
 # the modules resolve and the output paths in each config.py land where they
 # are supposed to.
@@ -51,7 +49,7 @@ parse_args() {
                 echo
                 echo "These scripts run the whole pipeline. To work on a subset, call the"
                 echo "stages directly, which take --datasets / --patterns / --rates:"
-                echo "  python -m injector.build --patterns mcar --rates 0.2 0.5"
+                echo "  python -m injector.reactivity.build --patterns mcar --rates 0.2 0.5"
                 exit 0
                 ;;
             *)
