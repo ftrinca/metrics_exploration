@@ -10,9 +10,9 @@ parse_args "$@"
 
 # _run_common.sh has already cd'd to the repository root, so these resolve
 # whatever directory this script was invoked from.
-./run_injector.sh "$@"
-./run_algorank.sh "$@"
-./run_cis.sh "$@"
+./scripts/run_injector.sh "$@"
+./scripts/run_algorank.sh "$@"
+./scripts/run_cis.sh "$@"
 
 # These two read caches the runs above produce, so they come last: the
 # chapter-level summary needs the CIS build, the background figures need the

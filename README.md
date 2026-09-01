@@ -31,8 +31,8 @@ pip install -e ".[dev]"
 ```
 
 The `dev` extra adds `pytest`. Plain `pip install -e .` leaves it out.
-Installing is never required: the runner scripts put `src/` on `PYTHONPATH`
-themselves, and `pytest` picks it up from `pyproject.toml`.
+Installing is never required: the runner scripts put the repository root on
+`PYTHONPATH` themselves, and `pytest` picks it up from `pyproject.toml`.
 
 `imputegap` supplies both the datasets and the imputation algorithms, so
 nothing runs without it. The upper bounds in `requirements.txt` are not
@@ -43,9 +43,9 @@ next to it.
 
 ## Running the experiments
 
-The runner scripts are run from the repository root and set the import path
+The runner scripts can be invoked from anywhere and set the import path
 themselves. To run individual stages with `python -m`, either install the
-package (`pip install -e .`) or export `PYTHONPATH=src` first.
+package (`pip install -e .`) or run from the repository root.
 
 ### Quick check first
 
@@ -62,7 +62,7 @@ trustworthy.
 ### Experiment 1 — Injector
 
 ```bash
-./run_injector.sh                       # everything, ~10 minutes
+./scripts/run_injector.sh                       # everything, ~10 minutes
 ```
 
 or stage by stage:
@@ -96,7 +96,7 @@ the way it is, is in [The Injector design](#the-injector-design) below.
 ### Experiment 2 — Algorithm ranking
 
 ```bash
-./run_algorank.sh                   # everything; the build stage takes hours
+./scripts/run_algorank.sh                   # everything; the build stage takes hours
 ```
 
 or stage by stage:
@@ -117,7 +117,7 @@ re-run freely afterwards without touching it.
 ### Experiment 3 — CIS
 
 ```bash
-./run_cis.sh
+./scripts/run_cis.sh
 ```
 
 or, in two stages:
@@ -134,7 +134,7 @@ the cache.
 ### Everything
 
 ```bash
-./run_all.sh
+./scripts/run_all.sh
 ```
 
 ### Common flags
@@ -340,71 +340,71 @@ reach the target.
 ## Layout
 
 ```
-run_injector.sh               Experiment 1, end to end
-run_algorank.sh               Experiment 2, end to end
-run_cis.sh                    Experiment 3, end to end
-run_all.sh                    all three, in dependency order
-_run_common.sh                sourced by the four above; not run directly
+scripts/
+├── run_injector.sh           Experiment 1, end to end
+├── run_algorank.sh           Experiment 2, end to end
+├── run_cis.sh                Experiment 3, end to end
+├── run_all.sh                all three, in dependency order
+└── _run_common.sh            sourced by the four above; not run directly
 
-src/
-└── metric_eval/              the one installable package
-    ├── paths.py              where the outputs go (everything under outputs/)
-    │
-    ├── core/                 shared by all three experiments
-    │   ├── metrics.py        22 metric functions, one formula each
-    │   ├── metric_config.py  the 20 that are scored, with categories
-    │   │                     and directions
-    │   ├── scoring.py        compute_all_scores — every metric, every reconstruction
-    │   ├── ranking.py        rank_algorithms
-    │   ├── buckets.py        the rate-bucket mean both experiments use
-    │   ├── missingness_patterns.py
-    │   ├── dataset_io.py     (T, N) arrays <-> the [series][timestep] JSON cache
-    │   └── data/             ground-truth loading and normalisation
-    │
-    ├── experiments/
-    │   ├── injector/         Experiment 1
-    │   │   ├── config.py     single source of truth for the design
-    │   │   ├── distortions.py  the eight distortions
-    │   │   ├── selftest.py
-    │   │   ├── reactivity/   one damage level, eight kinds, 24 scenarios
-    │   │   │   ├── calibrate.py  solves each severity to a common damage target
-    │   │   │   ├── build.py  score.py  aggregate.py
-    │   │   │   ├── analysis.py   spread, z-scores, metric agreement
-    │   │   │   ├── invariance.py machine-checked exact predictions
-    │   │   │   └── plotting.py
-    │   │   ├── response/     seven damage levels, one scenario
-    │   │   │   ├── build.py  score.py  aggregate.py
-    │   │   │   └── plotting.py
-    │   │   ├── summary.py    response grid and redundancy correlations
-    │   │   └── panels.py     the eight distortion panels of the thesis
-    │   │
-    │   ├── algorank/         Experiment 2
-    │   │   ├── config.py     datasets, algorithms, the kept metric set
-    │   │   ├── algorithms.py the six ImputeGAP algorithms
-    │   │   ├── build.py  score.py  aggregate.py
-    │   │   ├── _run_algorithm.py  one algorithm in one subprocess
-    │   │   ├── cache.py      reading a scenario back from disk
-    │   │   ├── analysis.py   ranks, consensus, agreement
-    │   │   ├── report.py     the text ranking summary
-    │   │   ├── plotting.py  visualize.py
-    │   │   ├── experiments.py  the chapter-level statistics
-    │   │   ├── summary_report.py  summary_plots.py
-    │   │   └── summarize.py  python -m metric_eval.experiments.algorank.summarize
-    │   │
-    │   └── cis/              Experiment 3
-    │       ├── config.py     components and gate thresholds
-    │       ├── build.py      reference reconstruction and gate ratios
-    │       ├── injector_data.py  reads Experiment 1's two caches
-    │       ├── gate.py       the stability gate
-    │       ├── score.py      the components and the composite
-    │       ├── experiments.py  the analyses behind every table
-    │       ├── report.py  plotting.py
-    │       └── __main__.py   python -m metric_eval.experiments.cis
-    │
-    └── background/           the introduction's figures, from the caches
-        └── figures.py        python -m metric_eval.background.figures
+metric_eval/                  the one installable package
+├── paths.py              where the outputs go (everything under outputs/)
+│
+├── core/                 shared by all three experiments
+│   ├── metrics.py        22 metric functions, one formula each
+│   ├── metric_config.py  the 20 that are scored, with categories
+│   │                     and directions
+│   ├── scoring.py        compute_all_scores — every metric, every reconstruction
+│   ├── ranking.py        rank_algorithms
+│   ├── buckets.py        the rate-bucket mean both experiments use
+│   ├── missingness_patterns.py
+│   ├── dataset_io.py     (T, N) arrays <-> the [series][timestep] JSON cache
+│   └── data/             ground-truth loading and normalisation
+│
+├── experiments/
+│   ├── injector/         Experiment 1
+│   │   ├── config.py     single source of truth for the design
+│   │   ├── distortions.py  the eight distortions
+│   │   ├── selftest.py
+│   │   ├── reactivity/   one damage level, eight kinds, 24 scenarios
+│   │   │   ├── calibrate.py  solves each severity to a common damage target
+│   │   │   ├── build.py  score.py  aggregate.py
+│   │   │   ├── analysis.py   spread, z-scores, metric agreement
+│   │   │   ├── invariance.py machine-checked exact predictions
+│   │   │   └── plotting.py
+│   │   ├── response/     seven damage levels, one scenario
+│   │   │   ├── build.py  score.py  aggregate.py
+│   │   │   └── plotting.py
+│   │   ├── summary.py    response grid and redundancy correlations
+│   │   └── panels.py     the eight distortion panels of the thesis
+│   │
+│   ├── algorank/         Experiment 2
+│   │   ├── config.py     datasets, algorithms, the kept metric set
+│   │   ├── algorithms.py the six ImputeGAP algorithms
+│   │   ├── build.py  score.py  aggregate.py
+│   │   ├── _run_algorithm.py  one algorithm in one subprocess
+│   │   ├── cache.py      reading a scenario back from disk
+│   │   ├── analysis.py   ranks, consensus, agreement
+│   │   ├── report.py     the text ranking summary
+│   │   ├── plotting.py  visualize.py
+│   │   ├── experiments.py  the chapter-level statistics
+│   │   ├── summary_report.py  summary_plots.py
+│   │   └── summarize.py  python -m metric_eval.experiments.algorank.summarize
+│   │
+│   └── cis/              Experiment 3
+│       ├── config.py     components and gate thresholds
+│       ├── build.py      reference reconstruction and gate ratios
+│       ├── injector_data.py  reads Experiment 1's two caches
+│       ├── gate.py       the stability gate
+│       ├── score.py      the components and the composite
+│       ├── experiments.py  the analyses behind every table
+│       ├── report.py  plotting.py
+│       └── __main__.py   python -m metric_eval.experiments.cis
+│
+└── background/           the introduction's figures, from the caches
+    └── figures.py        python -m metric_eval.background.figures
 
-outputs/                      everything the code writes; nothing in src/ is
+outputs/                      everything the code writes; nothing in metric_eval/ is
 ├── time_series/              cached reconstructions (gitignored, regenerable)
 ├── plots/                    the figures the thesis includes
 └── reports/                  the numbers the thesis cites

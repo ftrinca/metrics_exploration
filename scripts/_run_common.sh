@@ -1,12 +1,12 @@
 # Every script runs from the repository root whatever directory it was
-# invoked from. src/ goes on PYTHONPATH so the metric_eval package resolves
-# without an install; the output paths are anchored by metric_eval/paths.py
-# and do not depend on the working directory.
+# invoked from. The root goes on PYTHONPATH so the metric_eval package
+# resolves without an install; the output paths are anchored by
+# metric_eval/paths.py and do not depend on the working directory.
 
 set -euo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")"
-export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"
 
 PYTHON="${PYTHON:-$(command -v python || command -v python3 || true)}"
 if [ -z "$PYTHON" ] || ! "$PYTHON" -c "" >/dev/null 2>&1; then
@@ -21,7 +21,7 @@ fi
 require_imputegap() {
     if ! "$PYTHON" -c "import imputegap" >/dev/null 2>&1; then
         echo "ImputeGAP is not importable by $PYTHON." >&2
-        echo "Install the dependencies first:  pip install -r ../requirements.txt" >&2
+        echo "Install the dependencies first:  pip install -r requirements.txt" >&2
         exit 1
     fi
 }
@@ -51,7 +51,7 @@ parse_args() {
                 echo
                 echo "These scripts run the whole pipeline. To work on a subset, call the"
                 echo "stages directly, which take --datasets / --patterns / --rates:"
-                echo "  python -m injector.reactivity.build --patterns mcar --rates 0.2 0.5"
+                echo "  python -m metric_eval.experiments.injector.reactivity.build --patterns mcar --rates 0.2 0.5"
                 exit 0
                 ;;
             *)

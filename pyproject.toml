@@ -1,5 +1,5 @@
-# Packaging metadata. Installing is optional: the run scripts put src/ on
-# PYTHONPATH themselves. `pip install -e .` exists so the modules can be run
+# Packaging metadata. Installing is optional: the run scripts put the
+# repository root on PYTHONPATH themselves. `pip install -e .` exists so the modules can be run
 # from any directory, and so `pytest` needs no sys.path manipulation.
 
 [build-system]
@@ -20,13 +20,13 @@ dynamic = ["dependencies"]
 dev = ["pytest>=7.0"]
 
 [tool.setuptools.packages.find]
-# The src layout: src/ holds exactly one package, metric_eval, and the
-# generated outputs live outside src/, so discovery finds only source.
-where = ["src"]
+# Flat layout: the repository root holds exactly one package, metric_eval;
+# the include filter keeps deliverables/, outputs/, scripts/ and tests/ out.
+include = ["metric_eval*"]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["."]
 testpaths = ["tests"]
