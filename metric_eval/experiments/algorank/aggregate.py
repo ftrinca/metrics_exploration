@@ -1,17 +1,17 @@
 import argparse
 import os
 
-from core.buckets import bucket_mean, subjects_present
+from metric_eval.core.buckets import bucket_mean, subjects_present
 
-from experiments.algorank import cache
-from experiments.algorank.config import (
+from metric_eval.experiments.algorank import cache
+from metric_eval.experiments.algorank.config import (
     ALGO_METRICS, ALGO_NAMES, DATASETS, PATTERNS, RANGE_BUCKETS, RATES,
     heatmap_dir, rate_dir, rate_heatmap_dir, rate_report_dir, report_dir,
 )
-from experiments.algorank import ensure_scored
-from experiments.algorank import build_rank_matrix, consensus_order
-from experiments.algorank import write_ranking_report
-from experiments.algorank import plot_algorank_heatmap
+from metric_eval.experiments.algorank.score import ensure_scored
+from metric_eval.experiments.algorank.analysis import build_rank_matrix, consensus_order
+from metric_eval.experiments.algorank.report import write_ranking_report
+from metric_eval.experiments.algorank.plotting import plot_algorank_heatmap
 
 
 def aggregate_bucket(

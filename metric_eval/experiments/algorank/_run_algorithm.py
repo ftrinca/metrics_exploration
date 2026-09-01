@@ -3,7 +3,7 @@ import json
 
 import numpy as np
 
-from experiments.algorank import algorithms
+from metric_eval.experiments.algorank import algorithms
 
 
 def main() -> None:

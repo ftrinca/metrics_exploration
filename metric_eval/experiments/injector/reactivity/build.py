@@ -5,8 +5,8 @@ import os
 import numpy as np
 
 import metric_eval.core.dataset_io as dataset_io
-from core.data import real_world_ground_truth
-from core.data import normalization
+from metric_eval.core.data import real_world_ground_truth
+from metric_eval.core.data import normalization
 from metric_eval.core.missingness_patterns import make_mask
 
 from metric_eval.experiments.injector import distortions as D

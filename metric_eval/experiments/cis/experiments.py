@@ -1,15 +1,15 @@
 import numpy as np
 from scipy.stats import spearmanr
 
-from core.metric_config import METRIC_DIRECTION
-from core.ranking import rank_algorithms
+from metric_eval.core.metric_config import METRIC_DIRECTION
+from metric_eval.core.ranking import rank_algorithms
 
-from experiments.algorank.config import ALGO_METRICS, ALGO_NAMES, PATTERNS
+from metric_eval.experiments.algorank.config import ALGO_METRICS, ALGO_NAMES, PATTERNS
 
-from experiments.cis.config import (ADOPTED_POWER, CIS_METRICS, FLAT_THRESHOLD,
+from metric_eval.experiments.cis.config import (ADOPTED_POWER, CIS_METRICS, FLAT_THRESHOLD,
                                     POWER_VARIANTS, UNSTABLE_THRESHOLD)
-from experiments.cis import MIN_SURVIVORS, passes, survivors
-from experiments.cis.score import cis, combine, components
+from metric_eval.experiments.cis.gate import MIN_SURVIVORS, passes, survivors
+from metric_eval.experiments.cis.score import cis, combine, components
 
 RATE_BANDS = {"10-30": (10, 30), "40-50": (40, 50), "60-80": (60, 80)}
 

@@ -1,8 +1,8 @@
-from experiments.algorank.config import ALGO_METRICS, ALGO_NAMES, PATTERNS, label
+from metric_eval.experiments.algorank.config import ALGO_METRICS, ALGO_NAMES, PATTERNS, label
 
-from experiments.cis.config import (ADOPTED_POWER, CIS_METRICS, FLAT_THRESHOLD,
+from metric_eval.experiments.cis.config import (ADOPTED_POWER, CIS_METRICS, FLAT_THRESHOLD,
                                     UNSTABLE_THRESHOLD)
-from experiments.cis.experiments import (RATE_BANDS, agreement_with_metrics, blind_spots,
+from metric_eval.experiments.cis.experiments import (RATE_BANDS, agreement_with_metrics, blind_spots,
                                          component_profile, coverage, damage_sweep,
                                          equal_damage_response, gate_outcome,
                                          instrument_comparison, threshold_sensitivity,

@@ -4,11 +4,11 @@ import os
 import numpy as np
 
 import metric_eval.experiments.injector.config as injector_config
-from experiments.algorank.config import ALGO_METRICS
+from metric_eval.experiments.algorank.config import ALGO_METRICS
 from metric_eval.core.scoring import compute_all_scores
 
-from experiments.cis.config import REFERENCE_NAME
-from experiments.cis import mean_reconstruction
+from metric_eval.experiments.cis.config import REFERENCE_NAME
+from metric_eval.experiments.cis.build import mean_reconstruction
 
 
 def _condition(folder: str) -> dict | None:

@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Rectangle
 
-from experiments.algorank.config import ALGO_CATEGORIES, ALGO_METRICS, label
-from core.ranking import competition_rank
+from metric_eval.experiments.algorank.config import ALGO_CATEGORIES, ALGO_METRICS, label
+from metric_eval.core.ranking import competition_rank
 
 # The thesis heatmap palette, one colour per competition rank (1 = best).
 RANK_COLORS = ["#346960", "#77A29B", "#C6D1C1", "#E5C9B0", "#CD8470", "#A32A31"]

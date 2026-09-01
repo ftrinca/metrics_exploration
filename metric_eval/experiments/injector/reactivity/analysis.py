@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.stats import spearmanr
 
-from core.metric_config import CATEGORIES, METRIC_DIRECTION
+from metric_eval.core.metric_config import CATEGORIES, METRIC_DIRECTION
 from metric_eval.experiments.injector.config import DISTORTION_NAMES, INJECTOR_CATEGORIES, INJECTOR_METRICS
 
 # Relative spread below this counts as not distinguishing the eight distortions.

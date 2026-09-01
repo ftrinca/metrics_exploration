@@ -3,13 +3,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from experiments.algorank.config import ALGO_METRICS, ALGO_NAMES, PATTERNS, RATES, label
+from metric_eval.experiments.algorank.config import ALGO_METRICS, ALGO_NAMES, PATTERNS, RATES, label
 
-from experiments.cis.config import (ALGO_COLORS, CIS_METRICS, FLAT_THRESHOLD, PATTERN_COLORS,
+from metric_eval.experiments.cis.config import (ALGO_COLORS, CIS_METRICS, FLAT_THRESHOLD, PATTERN_COLORS,
                                     UNSTABLE_THRESHOLD)
-from experiments.cis.experiments import (RATE_BANDS, damage_sweep,
+from metric_eval.experiments.cis.experiments import (RATE_BANDS, damage_sweep,
                                          equal_damage_response, variation_preference)
-from experiments.cis import MIN_SURVIVORS, survivors
+from metric_eval.experiments.cis.gate import MIN_SURVIVORS, survivors
 
 BAND_MARKERS = {"10-30": "o", "40-50": "s", "60-80": "^"}
 BAND_COLORS = {"10-30": "#4C72B0", "40-50": "#937860", "60-80": "#C44E52"}

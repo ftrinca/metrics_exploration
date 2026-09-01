@@ -13,19 +13,18 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from core.ranking import competition_rank
+from metric_eval.core.ranking import competition_rank
 
-from experiments.algorank import cache
-from experiments.algorank import (anchored_visible, draw_rank_grid,
-                                  plot_reconstruction)
-from experiments.algorank.config import (ALGO_METRICS, ALGO_NAMES,
+from metric_eval.experiments.algorank import cache
+from metric_eval.experiments.algorank.plotting import anchored_visible, draw_rank_grid, plot_reconstruction
+from metric_eval.experiments.algorank.config import (ALGO_METRICS, ALGO_NAMES,
                                          PATTERNS, RATES, label)
-from experiments.algorank.experiments import (RATE_BANDS, agreement_by_condition,
+from metric_eval.experiments.algorank.experiments import (RATE_BANDS, agreement_by_condition,
                                               degeneracy, non_blackout,
                                               scenario_agreement, spread,
                                               spread_quartiles, variation_preference)
-from experiments.algorank.visualize import _choose_window
-from experiments.cis.config import UNSTABLE_THRESHOLD
+from metric_eval.experiments.algorank.visualize import _choose_window
+from metric_eval.experiments.cis.config import UNSTABLE_THRESHOLD
 
 PATTERN_COLORS = {"mcar": "#4C72B0", "scattered": "#55A868", "blackout": "#C44E52"}
 

@@ -145,7 +145,7 @@ def calibrate_phase(patterns, rates, target=TARGET_DAMAGE, force=False,
     `damage_metric` picks the calibration target and the cache filename, so
     the MAE and the RMSE pass live side by side in the same rate directory.
     """
-    from experiments.injector.reactivity.build import load_ground_truth
+    from metric_eval.experiments.injector.reactivity.build import load_ground_truth
     from metric_eval.core.missingness_patterns import make_mask
 
     print("Loading ground truth")

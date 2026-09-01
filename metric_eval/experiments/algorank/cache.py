@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 
-from experiments.algorank.config import rate_dir, seed_dir
+from metric_eval.experiments.algorank.config import rate_dir, seed_dir
 
 
 def deterministic_path(dataset: str, pattern: str, rate: float) -> str:

@@ -13,15 +13,14 @@ import os
 import numpy as np
 from scipy.stats import kendalltau, spearmanr
 
-from core.ranking import rank_algorithms
+from metric_eval.core.ranking import rank_algorithms
 
-from experiments.algorank import (build_rank_matrix, category_consensus,
-                                  global_consensus)
-from experiments.algorank.config import ALGO_METRICS, ALGO_NAMES, PATTERNS, RATES
+from metric_eval.experiments.algorank.analysis import build_rank_matrix, category_consensus, global_consensus
+from metric_eval.experiments.algorank.config import ALGO_METRICS, ALGO_NAMES, PATTERNS, RATES
 
 # The cuts of the CIS gate, reused here so that "constant" and "diverging"
 # mean the same thing in both chapters.
-from experiments.cis.config import FLAT_THRESHOLD, UNSTABLE_THRESHOLD
+from metric_eval.experiments.cis.config import FLAT_THRESHOLD, UNSTABLE_THRESHOLD
 
 RATE_BANDS = {"10-30": (10, 30), "40-50": (40, 50), "60-80": (60, 80)}
 
@@ -438,7 +437,7 @@ def pearson_substitution(suite: dict[tuple, dict],
     the mean agreement, the consensus order, and how often the two candidate
     metrics rank the six algorithms identically.
     """
-    from core.metric_config import METRIC_DIRECTION
+    from metric_eval.core.metric_config import METRIC_DIRECTION
     keys = list(non_blackout(suite))
     pearson_ranks = {
         k: rank_algorithms(suite[k]["scores"]["pearson"],
@@ -492,7 +491,7 @@ def pointwise_stability(suite: dict[tuple, dict]) -> dict:
     caches on disk; scenarios without one are skipped and counted.
     """
     import json as _json
-    from experiments.algorank import cache as _cache
+    from metric_eval.experiments.algorank import cache as _cache
 
     shares: dict[str, list[float]] = {m: [] for m in POINTWISE_METRICS}
     scenarios = missing = 0
@@ -551,7 +550,7 @@ def blackout_identity(suite: dict[tuple, dict]) -> dict:
     at the masked positions. Needs the build caches on disk.
     """
     import json as _json
-    from experiments.algorank import cache as _cache
+    from metric_eval.experiments.algorank import cache as _cache
 
     deterministic = ("CDRec", "ROSL", "DynaMMo", "STMVL")
     scenarios = identical = 0
@@ -587,8 +586,8 @@ def jsd_bin_robustness(suite: dict[tuple, dict]) -> dict:
     build caches on disk.
     """
     import json as _json
-    from experiments.algorank import cache as _cache
-    from experiments.algorank.config import N_SEEDS
+    from metric_eval.experiments.algorank import cache as _cache
+    from metric_eval.experiments.algorank.config import N_SEEDS
 
     def jsd_series(y, r, bins, truth_range):
         source = y if truth_range else np.concatenate([y, r])

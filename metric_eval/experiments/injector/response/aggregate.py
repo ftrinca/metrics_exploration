@@ -4,14 +4,14 @@ import os
 
 import numpy as np
 
-from core.metric_config import CATEGORIES, METRIC_DIRECTION
+from metric_eval.core.metric_config import CATEGORIES, METRIC_DIRECTION
 from metric_eval.experiments.injector.config import INJECTOR_METRICS
 from metric_eval.experiments.injector.config import (
     DAMAGE_LEVELS, DISTORTION_NAMES, INJECTOR_CATEGORIES, RESPONSE_PATTERN,
     RESPONSE_PLOT_DIR, RESPONSE_RATE, RESPONSE_REPORT_DIR, response_dir,
 )
 from metric_eval.experiments.injector.config import METRIC_LABEL
-from experiments.injector.response import plot_all_sweeps
+from metric_eval.experiments.injector.response.plotting import plot_all_sweeps
 
 FLAT_TOLERANCE = 1e-9
 

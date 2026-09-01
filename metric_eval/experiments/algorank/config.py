@@ -1,6 +1,6 @@
 import os
 
-from paths import PLOTS_DIR, REPORTS_DIR, TIME_SERIES_DIR
+from metric_eval.paths import PLOTS_DIR, REPORTS_DIR, TIME_SERIES_DIR
 
 # Six datasets, two per quadrant of a cross-series-correlation by periodicity design.
 DATASETS = [

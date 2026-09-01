@@ -6,11 +6,11 @@ import numpy as np
 
 from metric_eval.core.scoring import compute_all_scores
 
-from experiments.algorank import cache
-from experiments.algorank.config import (ALGO_METRICS, DATASETS, N_SEEDS, PATTERNS,
+from metric_eval.experiments.algorank import cache
+from metric_eval.experiments.algorank.config import (ALGO_METRICS, DATASETS, N_SEEDS, PATTERNS,
                                          RATES, STOCHASTIC_ALGO_NAMES, rate_dir)
 
-from experiments.cis.config import ALGO_NAMES, CIS_CACHE_DIR, REFERENCE_NAME, cache_path
+from metric_eval.experiments.cis.config import ALGO_NAMES, CIS_CACHE_DIR, REFERENCE_NAME, cache_path
 
 
 def mean_reconstruction(y_true: np.ndarray, mask: np.ndarray) -> np.ndarray:

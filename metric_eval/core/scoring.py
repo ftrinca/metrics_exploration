@@ -1,7 +1,7 @@
-import core.metrics as metrics
+import metric_eval.core.metrics as metrics
 import numpy as np
 
-from core.metric_config import FULL_SERIES_METRICS, METRIC_LIST, PROBABILISTIC_METRICS
+from metric_eval.core.metric_config import FULL_SERIES_METRICS, METRIC_LIST, PROBABILISTIC_METRICS
 
 
 def to_scalar(metric_name: str, value) -> float:

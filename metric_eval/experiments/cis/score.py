@@ -1,6 +1,6 @@
 import numpy as np
 
-from experiments.cis.config import ADOPTED_POWER, CIS_METRICS
+from metric_eval.experiments.cis.config import ADOPTED_POWER, CIS_METRICS
 
 # MI and R2 rise with agreement; every other metric in the panel falls with it.
 _SIMILARITY = {"mi", "r2"}

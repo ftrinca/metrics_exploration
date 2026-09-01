@@ -1,7 +1,7 @@
 import os
 
-from experiments.algorank.config import ALGO_NAMES  # noqa: F401  re-exported for the CIS modules
-from paths import PLOTS_DIR, REPORTS_DIR, TIME_SERIES_DIR
+from metric_eval.experiments.algorank.config import ALGO_NAMES  # noqa: F401  re-exported for the CIS modules
+from metric_eval.paths import PLOTS_DIR, REPORTS_DIR, TIME_SERIES_DIR
 
 # The three components are chosen so that no kind of damage Experiment 1 defines
 # goes undetected: each one is blind to something the other two see. Every other

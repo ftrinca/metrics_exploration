@@ -2,14 +2,11 @@ from __future__ import annotations
 
 import os
 
-from core.metric_config import METRIC_DIRECTION
-from core.ranking import competition_rank
+from metric_eval.core.metric_config import METRIC_DIRECTION
+from metric_eval.core.ranking import competition_rank
 
-from experiments.algorank import (
-    _positions_with_ties, _spearman_matrix, category_consensus, global_consensus,
-    profile_spread,
-)
-from experiments.algorank.config import ALGO_CATEGORIES, ALGO_METRICS, label
+from metric_eval.experiments.algorank.analysis import _positions_with_ties, _spearman_matrix, category_consensus, global_consensus, profile_spread
+from metric_eval.experiments.algorank.config import ALGO_CATEGORIES, ALGO_METRICS, label
 
 
 def _fmt_comp_rank(r: int) -> str:

@@ -1,14 +1,13 @@
 import argparse
 import os
 
-from experiments.algorank.config import DATASETS
+from metric_eval.experiments.algorank.config import DATASETS
 
-from experiments.cis.config import CIS_PLOT_DIR, CIS_REPORT_DIR
-from experiments.cis import load_cache
-from experiments.cis import load_damage_sweep, load_equal_damage
-from experiments.cis import (plot_coverage, plot_gate_distribution,
-                             plot_known_damage, plot_variation_axis)
-from experiments.cis import write_report
+from metric_eval.experiments.cis.config import CIS_PLOT_DIR, CIS_REPORT_DIR
+from metric_eval.experiments.cis.gate import load_cache
+from metric_eval.experiments.cis.injector_data import load_damage_sweep, load_equal_damage
+from metric_eval.experiments.cis.plotting import plot_coverage, plot_gate_distribution, plot_known_damage, plot_variation_axis
+from metric_eval.experiments.cis.report import write_report
 
 
 def main(datasets: list[str], skip_plots: bool) -> None:

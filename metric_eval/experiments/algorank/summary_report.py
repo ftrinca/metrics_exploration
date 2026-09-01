@@ -5,8 +5,8 @@ here, so the thesis can be checked against one file.
 """
 from __future__ import annotations
 
-from experiments.algorank.config import ALGO_METRICS, ALGO_NAMES, PATTERNS, RATES, label
-from experiments.algorank.experiments import (POINTWISE_METRICS, RATE_BANDS,
+from metric_eval.experiments.algorank.config import ALGO_METRICS, ALGO_NAMES, PATTERNS, RATES, label
+from metric_eval.experiments.algorank.experiments import (POINTWISE_METRICS, RATE_BANDS,
                                               SPREAD_RULERS, agreement_by_condition,
                                               agreement_by_dataset,
                                               algo_ratio_medians, blackout_identity,

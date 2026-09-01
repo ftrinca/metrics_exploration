@@ -4,12 +4,12 @@ import os
 
 import numpy as np
 
-from core.metric_config import METRIC_LIST
-from core.buckets import subjects_present
+from metric_eval.core.metric_config import METRIC_LIST
+from metric_eval.core.buckets import subjects_present
 from metric_eval.core.scoring import compute_all_scores
 
-from experiments.algorank import cache
-from experiments.algorank.config import (
+from metric_eval.experiments.algorank import cache
+from metric_eval.experiments.algorank.config import (
     ALGO_METRICS, ALGO_NAMES, DATASETS, N_SEEDS, PATTERNS, RATES, rate_dir,
 )
 

@@ -14,7 +14,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from core.metric_config import CATEGORIES
+from metric_eval.core.metric_config import CATEGORIES
 from metric_eval.experiments.injector.config import (CATEGORY_COLOR, DISTORTION_LABEL,
                              DISTORTION_NAMES, INJECTOR_CATEGORIES,
                              INJECTOR_METRICS, METRIC_LABEL)

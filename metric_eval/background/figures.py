@@ -18,12 +18,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage import uniform_filter1d
 
-from core.metrics import dtw, mae
+from metric_eval.core.metrics import dtw, mae
 
-from experiments.algorank.cache import deterministic_path
-from experiments.algorank.config import PATTERNS
+from metric_eval.experiments.algorank.cache import deterministic_path
+from metric_eval.experiments.algorank.config import PATTERNS
 
-from paths import PLOTS_DIR
+from metric_eval.paths import PLOTS_DIR
 
 PLOT_DIR = os.path.join(PLOTS_DIR, "background")
 

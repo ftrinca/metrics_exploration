@@ -1,8 +1,8 @@
 import json
 import os
 
-from experiments.algorank.config import DATASETS
-from experiments.cis.config import FLAT_THRESHOLD, UNSTABLE_THRESHOLD, cache_path
+from metric_eval.experiments.algorank.config import DATASETS
+from metric_eval.experiments.cis.config import FLAT_THRESHOLD, UNSTABLE_THRESHOLD, cache_path
 
 MIN_SURVIVORS = 3
 

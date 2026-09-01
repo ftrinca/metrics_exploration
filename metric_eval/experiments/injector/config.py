@@ -1,7 +1,7 @@
 import os
 
-from core.metric_config import CATEGORIES
-from paths import PLOTS_DIR, REPORTS_DIR, TIME_SERIES_DIR
+from metric_eval.core.metric_config import CATEGORIES
+from metric_eval.paths import PLOTS_DIR, REPORTS_DIR, TIME_SERIES_DIR
 
 # Dataset
 DATASET = "airq"

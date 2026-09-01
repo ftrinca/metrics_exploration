@@ -5,10 +5,10 @@ import math
 import numpy as np
 from scipy.stats import spearmanr
 
-from core.metric_config import METRIC_DIRECTION
-from core.ranking import rank_algorithms
+from metric_eval.core.metric_config import METRIC_DIRECTION
+from metric_eval.core.ranking import rank_algorithms
 
-from experiments.algorank.config import ALGO_CATEGORIES, ALGO_METRICS
+from metric_eval.experiments.algorank.config import ALGO_CATEGORIES, ALGO_METRICS
 
 
 def build_rank_matrix(

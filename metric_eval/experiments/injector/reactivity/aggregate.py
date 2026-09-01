@@ -4,14 +4,14 @@ import os
 
 import numpy as np
 
-from core.buckets import bucket_mean as _bucket_mean
-from experiments.injector.reactivity import analysis
-from experiments.injector.reactivity import invariance
+from metric_eval.core.buckets import bucket_mean as _bucket_mean
+from metric_eval.experiments.injector.reactivity import analysis
+from metric_eval.experiments.injector.reactivity import invariance
 from metric_eval.experiments.injector.config import (
     DISTORTION_NAMES, REACTIVITY_PLOT_DIR, REACTIVITY_REPORT_DIR, PATTERNS,
     RANGE_BUCKETS, RATES, TARGET_DAMAGE, pass_filename, rate_dir,
 )
-from experiments.injector.reactivity import (
+from metric_eval.experiments.injector.reactivity.plotting import (
     METRIC_LABEL, plot_condition_grid, plot_heatmap, plot_metric_overview,
 )
 

@@ -15,7 +15,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import core.metrics as m  # noqa: E402
+import metric_eval.core.metrics as m  # noqa: E402
 
 RTOL = 1e-9
 N = 400

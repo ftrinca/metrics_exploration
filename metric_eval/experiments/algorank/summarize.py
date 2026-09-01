@@ -12,17 +12,12 @@ import os
 
 import numpy as np
 
-from experiments.algorank import cache
-from experiments.algorank.config import DATASETS, PLOT_DIR, REPORT_DIR
-from experiments.algorank.experiments import rank_matrices
-from experiments.algorank import write_report
-from experiments.algorank import (THESIS_SCENARIOS, plot_agreement_rate,
-                                  plot_dataset_map,
-                                  plot_scenario_pair,
-                                  plot_separation_measure,
-                                  plot_variation_preference,
-                                  plot_zero_variation)
-from experiments.cis import load_cache
+from metric_eval.experiments.algorank import cache
+from metric_eval.experiments.algorank.config import DATASETS, PLOT_DIR, REPORT_DIR
+from metric_eval.experiments.algorank.experiments import rank_matrices
+from metric_eval.experiments.algorank.summary_report import write_report
+from metric_eval.experiments.algorank.summary_plots import THESIS_SCENARIOS, plot_agreement_rate, plot_dataset_map, plot_scenario_pair, plot_separation_measure, plot_variation_preference, plot_zero_variation
+from metric_eval.experiments.cis.gate import load_cache
 
 SUMMARY_PLOT_DIR = os.path.join(PLOT_DIR, "summary")
 

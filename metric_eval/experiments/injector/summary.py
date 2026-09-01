@@ -17,14 +17,14 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from core.metric_config import CATEGORIES, METRIC_DIRECTION
+from metric_eval.core.metric_config import CATEGORIES, METRIC_DIRECTION
 
 from metric_eval.experiments.injector.config import (CATEGORY_COLOR, DISTORTION_NAMES,
                              INJECTOR_CATEGORIES, INJECTOR_METRICS,
                              METRIC_LABEL, PATTERNS, PLOT_DIR, RATES,
                              REPORT_DIR, pass_filename, rate_dir)
-from experiments.injector.reactivity import invariance
-from experiments.injector.response.aggregate import _classify, _load_all
+from metric_eval.experiments.injector.reactivity import invariance
+from metric_eval.experiments.injector.response.aggregate import _classify, _load_all
 
 # The columns read off the RMSE-calibrated pass, per Chapter 4's design.
 RMSE_PASS_METRICS = ("mae", "nd")

@@ -13,13 +13,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from core.metric_config import CATEGORIES
+from metric_eval.core.metric_config import CATEGORIES
 
 from metric_eval.experiments.injector.config import (
     CATEGORY_COLOR, DISTORTION_NAMES, INJECTOR_CATEGORIES, INJECTOR_METRICS,
     METRIC_LABEL, PATTERNS, RANGE_BUCKETS,
 )
-from experiments.injector.reactivity import invariance
+from metric_eval.experiments.injector.reactivity import invariance
 
 CONDITION_ORDER = [(p, b) for p in PATTERNS for b in RANGE_BUCKETS]
 

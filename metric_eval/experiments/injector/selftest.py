@@ -5,7 +5,7 @@ import sys
 import numpy as np
 
 from metric_eval.experiments.injector import distortions as D
-from experiments.injector.reactivity.calibrate import calibration_table, solve_series
+from metric_eval.experiments.injector.reactivity.calibrate import calibration_table, solve_series
 from metric_eval.experiments.injector.config import (DAMAGE_LEVELS, DISTORTIONS, DISTORTION_NAMES, SEED,
                              RESPONSE_RATE, TARGET_DAMAGE)
 

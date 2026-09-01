@@ -7,8 +7,8 @@ import metric_eval.core.dataset_io as dataset_io
 from metric_eval.core.missingness_patterns import make_mask
 
 from metric_eval.experiments.injector import distortions as D
-from experiments.injector.reactivity.calibrate import solve_series
-from experiments.injector.reactivity.build import load_ground_truth
+from metric_eval.experiments.injector.reactivity.calibrate import solve_series
+from metric_eval.experiments.injector.reactivity.build import load_ground_truth
 from metric_eval.experiments.injector.config import (
     DAMAGE_LEVELS, DISTORTION_NAMES, SEED, RESPONSE_PATTERN, RESPONSE_RATE, response_dir,
 )

@@ -9,7 +9,7 @@ import numpy as np
 
 from imputegap.recovery.imputation import Imputation
 
-from experiments.algorank import config
+from metric_eval.experiments.algorank import config
 
 
 @contextmanager
