@@ -1,6 +1,6 @@
-# Packaging metadata. Installing is optional: every stage runs from `src/`
-# without it. `pip install -e .` exists so the modules can be run from any
-# directory, and so `pytest` needs no sys.path manipulation.
+# Packaging metadata. Installing is optional: the run scripts put src/ on
+# PYTHONPATH themselves. `pip install -e .` exists so the modules can be run
+# from any directory, and so `pytest` needs no sys.path manipulation.
 
 [build-system]
 requires = ["setuptools>=64"]
@@ -19,14 +19,14 @@ dynamic = ["dependencies"]
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
 
-[tool.setuptools]
-package-dir = { "" = "src" }
-# Listed rather than auto-discovered, so that the generated output directories
-# under src/ (time_series/, plots/, reports/) cannot be picked up as packages.
-packages = ["core", "core.data", "injector", "algo_ranking", "cis"]
+[tool.setuptools.packages.find]
+# The src layout: src/ holds exactly one package, metric_eval, and the
+# generated outputs live outside src/, so discovery finds only source.
+where = ["src"]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
 
 [tool.pytest.ini_options]
+pythonpath = ["src"]
 testpaths = ["tests"]

@@ -1,0 +1,129 @@
+ALGORITHM RANKING — CHAPTER-LEVEL STATISTICS
+==============================================================================
+
+144 scenarios, 6 algorithms, 8 metrics; agreement is Kendall tau_b, averaged over the 28 metric pairs of a scenario
+
+1. AGREEMENT BY CONDITION
+   by pattern: mcar 0.61  scattered 0.60  blackout 0.06
+   by rate:
+   pattern          10     20     30     40     50     60     70     80
+   mcar           0.69   0.67   0.72   0.67   0.60   0.56   0.53   0.42
+   scattered      0.74   0.74   0.68   0.65   0.63   0.52   0.50   0.36
+   blackout       0.10   0.05   0.06   0.05   0.06   0.06   0.05   0.08
+
+2. DISTINCT RANKINGS PER SCENARIO  (non-blackout)
+   1:1  2:2  3:9  4:14  5:22  6:33  7:12  8:3
+   unanimous scenarios (all 144): forecast-economy/mcar/10
+
+3. CONSENSUS  (flat mean rank over the 8 metrics and the 96 non-blackout scenarios; 768 judgements)
+   algorithm   mean rank  first places
+   CDRec            2.01           43%
+   DynaMMo          2.15           27%
+   ROSL             2.78           14%
+   MPIN             4.26            4%
+   STMVL            4.79            7%
+   BRITS            5.01            4%
+
+4. DEPARTURE FROM THE CATEGORY-WEIGHTED CONSENSUS  (non-blackout)
+   metric   mean tau  reproduces  CDRec first
+   MAE          0.89       41/96        42/96
+   RMSE         0.83       30/96        39/96
+   WD           0.81       26/96        69/96
+   DTW          0.79       24/96        29/96
+   MI           0.79       16/96        45/96
+   sMAE         0.79       20/96        39/96
+   R2           0.78       21/96        40/96
+   JSD          0.30        1/96        28/96
+
+5. SPREAD  ((worst - best) / worst on MAE, diverging BRITS dropped)
+   quarter             mean tau  one winner
+   1 (24 scenarios)        0.41        0/24
+   2 (24 scenarios)        0.60        2/24
+   3 (24 scenarios)        0.64        4/24
+   4 (24 scenarios)        0.77        6/24
+   rho with agreement per ruler: MAE 0.67  sMAE 0.63  WD 0.62  RMSE 0.55  DTW 0.49
+   rulers against each other: from 0.77 (sMAE-WD) to 0.97 (RMSE-DTW)
+
+6. VARIATION PREFERENCE  (BRITS excluded, non-blackout; positive: keeps the variation first)
+   metric   overall    10-30    40-50    60-80
+   JSD         0.70     0.62     0.56     0.86
+   WD          0.35     0.08    -0.04     0.87
+   MI          0.31     0.07     0.01     0.76
+   MAE         0.06    -0.03    -0.23     0.34
+   sMAE        0.02    -0.09    -0.22     0.28
+   DTW        -0.05    -0.17    -0.35     0.28
+   RMSE       -0.08    -0.12    -0.36     0.15
+   R2         -0.15    -0.22    -0.42     0.10
+   share of MAE-disagreement pairs preferring the more varied reconstruction:
+   JSD 0.94  WD 0.88  MI 0.82  sMAE 0.42  DTW 0.29  R2 0.04  RMSE 0.02
+
+7. DEGENERATE RECONSTRUCTIONS  (36 constant, 98 diverging, non-blackout; mean ranks, 3.5 = middle of six)
+   metric   constant  diverging   matched
+   JSD          6.00       2.98      2.14
+   MI           6.00       5.44      1.97
+   WD           5.11       5.79      1.56
+   DTW          4.11       5.81      2.83
+   MAE          3.83       5.79      2.56
+   sMAE         3.47       5.78      2.50
+   RMSE         3.28       5.81      2.89
+   R2           3.14       5.81      2.92
+
+8. HEADLINE NUMBERS  (non-blackout unless stated)
+   MAE and RMSE produce different rankings in 48 scenarios; RMSE does not take the flatter of every disagreed pair in 2 of them
+   names a different winner from the majority: JSD 70  WD 40  DTW 33  MI 31  sMAE 23  R2 15  RMSE 10  MAE 9
+   mean agreement 0.604; without JSD 0.726 (+20%)
+   distinct winners per scenario 2.69, distinct last places 2.03
+   mean rank range across the metrics: CDRec 1.85  ROSL 2.20  DynaMMo 1.64  STMVL 2.73  BRITS 2.68  MPIN 2.36
+   MPIN keeps under half the variation in 69% of the scenarios
+   ST-MVL first at rates 60-80%: RMSE 8/36, R2 8/36
+   MI reads exactly 0 for 229 reconstructions (all 144 scenarios), 1 of them not constant
+   agreement without any degenerate reconstruction 0.72 (12 scenarios), with a constant and a diverging one 0.46 (31 scenarios)
+
+9. WORKED EXAMPLES
+   forecast-economy mcar 10, MPIN over CDRec (MAE): 2.92
+   temperature scattered 20, worst over best (MAE): 17.59
+   drift mcar 50, worst over best (MAE): 15.04
+   drift mcar 50, agreement: 0.41
+   forecast-economy mcar 70, agreement: 0.74
+   electricity mcar 70, agreement: 0.31
+   chlorine scattered 40, BRITS over best (MAE): 3.77
+   climate scattered 70, worst over best (MAE): 1.04
+
+10. DATASET MAP  (complete series, before masking)
+   dataset             mean |cross-corr|  lag-1 autocorr
+   temperature                      0.98            0.98
+   chlorine                         0.83            1.00
+   climate                          0.30            0.74
+   electricity                      0.38            0.83
+   drift                            0.84           -0.13
+   forecast-economy                 0.81           -0.06
+
+11. AGREEMENT BY DATASET  (non-blackout)
+   forecast-economy 0.75  temperature 0.73  chlorine 0.67  drift 0.59  electricity 0.45  climate 0.44
+
+12. PEARSON IN PLACE OF R2  (non-blackout)
+   mean agreement 0.604 original, 0.601 substituted
+   consensus order original:    CDRec > DynaMMo > ROSL > MPIN > STMVL > BRITS
+   consensus order substituted: CDRec > DynaMMo > ROSL > MPIN > STMVL > BRITS
+   Pearson and R2 rank identically in 9/96 scenarios, mean tau 0.57
+
+13. POINTWISE STABILITY  (share of a series' metric carried by its single largest position;
+    per family, over the reconstructions of 96 cached scenarios)
+   family             median      p90  share > 0.5
+   mre                 0.101    0.367         5.6%
+   rmse/mse/nrmse      0.038    0.257         3.6%
+   mae/nd              0.013    0.056         0.3%
+   smape               0.003    0.021         0.0%
+
+14. MEDIAN STANDARD-DEVIATION RATIO PER ALGORITHM  (all 144 scenarios)
+   BRITS 13.52  CDRec 0.87  DynaMMo 0.75  ROSL 0.63  MPIN 0.36  STMVL 0.00
+
+15. BLACKOUT IDENTITY  (the four deterministic algorithms, at the masked positions)
+   identical in 48/48 blackout scenarios (largest value difference 0.00e+00)
+
+16. JSD HISTOGRAM ROBUSTNESS  (scenarios holding a diverging reconstruction; how often JSD still puts one first)
+   default      40/79
+   bins 10      37/79
+   bins 100     39/79
+   bins 1000    61/79
+   truth-range  38/79

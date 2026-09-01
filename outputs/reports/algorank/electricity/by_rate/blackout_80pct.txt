@@ -1,0 +1,88 @@
+ALGORITHM RANKING SUMMARY — electricity / 80% missingness (BLACKOUT)
+======================================================================
+rank 1 = best. Per-metric rows use competition ranking (a 4-way tie reads
+1, 1, 1, 1, 5); '-> mean' and every number below it use average ranks.
+
+METRIC        CDRec    ROSL    DynaMMo   STMVL    MPIN     BRITS    direction
+------------------------------------------------------------------------------
+  POINTWISE DISTANCE
+  MAE           1        1        1        1        5        6      lower
+  RMSE          1        1        1        1        5        6      lower
+  -> mean     2.50     2.50     2.50     2.50     5.00     6.00   
+------------------------------------------------------------------------------
+  DISTRIBUTIONAL DIVERGENCE
+  WD            2        2        2        2        1        6      lower
+  JSD           3        3        3        3        2        1      lower
+  -> mean     4.00     4.00     4.00     4.00     1.50     3.50   
+------------------------------------------------------------------------------
+  TEMPORAL STRUCTURE
+  DTW           2        2        2        2        1        6      lower
+  sMAE          1        1        1        1        5        6      lower
+  -> mean     3.00     3.00     3.00     3.00     3.00     6.00   
+------------------------------------------------------------------------------
+  STATISTICAL AGREEMENT
+  R2            1        1        1        1        5        6      higher
+  MI            3        3        3        3        1        2      higher
+  -> mean     3.50     3.50     3.50     3.50     3.00     4.00   
+------------------------------------------------------------------------------
+
+PER-CATEGORY CONSENSUS  (mean rank of that category's 2 metrics)
+======================================================================
+  Pointwise Distance:
+    1. CDRec  (mean rank: 2.50)
+    1. ROSL  (mean rank: 2.50)
+    1. DynaMMo  (mean rank: 2.50)
+    1. STMVL  (mean rank: 2.50)
+    5. MPIN  (mean rank: 5.00)
+    6. BRITS  (mean rank: 6.00)
+  Distributional Divergence:
+    1. MPIN  (mean rank: 1.50)
+    2. BRITS  (mean rank: 3.50)
+    3. CDRec  (mean rank: 4.00)
+    3. ROSL  (mean rank: 4.00)
+    3. DynaMMo  (mean rank: 4.00)
+    3. STMVL  (mean rank: 4.00)
+  Temporal Structure:
+    1. CDRec  (mean rank: 3.00)
+    1. ROSL  (mean rank: 3.00)
+    1. DynaMMo  (mean rank: 3.00)
+    1. STMVL  (mean rank: 3.00)
+    1. MPIN  (mean rank: 3.00)
+    6. BRITS  (mean rank: 6.00)
+  Statistical Agreement:
+    1. MPIN  (mean rank: 3.00)
+    2. CDRec  (mean rank: 3.50)
+    2. ROSL  (mean rank: 3.50)
+    2. DynaMMo  (mean rank: 3.50)
+    2. STMVL  (mean rank: 3.50)
+    6. BRITS  (mean rank: 4.00)
+
+GLOBAL CONSENSUS  (mean rank across all 4 categories)
+======================================================================
+  1. MPIN  (mean rank: 3.12)
+  2. CDRec  (mean rank: 3.25)
+  2. ROSL  (mean rank: 3.25)
+  2. DynaMMo  (mean rank: 3.25)
+  2. STMVL  (mean rank: 3.25)
+  6. BRITS  (mean rank: 4.88)
+
+PROFILE SPREAD  (std of the 4 category-consensus scores; high = specialist, low = generalist)
+======================================================================
+  MPIN           std=1.24
+  BRITS          std=1.14
+  CDRec          std=0.56
+  ROSL           std=0.56
+  DynaMMo        std=0.56
+  STMVL          std=0.56
+
+METRIC AGREEMENT  (Spearman rank correlation across the 8 kept metrics)
+======================================================================
+              MAE     RMSE     WD     JSD     DTW     sMAE     R2      MI   
+MAE           1.00    1.00    0.20   -1.00    0.20    1.00    1.00   -0.92  
+RMSE          1.00    1.00    0.20   -1.00    0.20    1.00    1.00   -0.92  
+WD            0.20    0.20    1.00   -0.20    1.00    0.20    0.20    0.20  
+JSD          -1.00   -1.00   -0.20    1.00   -0.20   -1.00   -1.00    0.92  
+DTW           0.20    0.20    1.00   -0.20    1.00    0.20    0.20    0.20  
+sMAE          1.00    1.00    0.20   -1.00    0.20    1.00    1.00   -0.92  
+R2            1.00    1.00    0.20   -1.00    0.20    1.00    1.00   -0.92  
+MI           -0.92   -0.92    0.20    0.92    0.20   -0.92   -0.92    1.00  

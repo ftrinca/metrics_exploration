@@ -13,7 +13,8 @@ dist/
 *.egg-info/
 .pytest_cache/
 
-# Generated output. plots/ and reports/ are what the thesis cites and are kept;
-# time_series/ is around 350 MB of cached reconstructions and is fully
-# reproducible from the code, so it is not worth version-controlling.
-src/time_series/
+# Generated output. outputs/plots/ and outputs/reports/ are what the thesis
+# cites and are kept; outputs/time_series/ is around 400 MB of cached
+# reconstructions and is fully reproducible from the code, so it is not worth
+# version-controlling.
+outputs/time_series/

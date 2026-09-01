@@ -9,7 +9,7 @@ Three experiments, run in order:
 |---|---|---|
 | 1 | **Injector** | With the amount of damage held constant, do the candidate metrics tell different *kinds* of damage apart? |
 | 2 | **Algorithm ranking** | Applied to real algorithms on real data, do the kept metrics agree on which algorithm is best? |
-| 3 | **CIS** | Can complementary metrics be combined into one score without losing what made them complementary? |
+| 3 | **CIS** | Can metrics that disagree be combined into one number that no kind of damage escapes? |
 
 ---
 
@@ -24,15 +24,15 @@ pip install -r requirements.txt
 ```
 
 Optionally install the project itself, which lets you run the modules from
-anywhere rather than only from `src/`:
+anywhere without the runner scripts:
 
 ```bash
 pip install -e ".[dev]"
 ```
 
 The `dev` extra adds `pytest`. Plain `pip install -e .` leaves it out.
-Installing is never required: the runner scripts and every stage work from
-`src/` without it.
+Installing is never required: the runner scripts put `src/` on `PYTHONPATH`
+themselves, and `pytest` picks it up from `pyproject.toml`.
 
 `imputegap` supplies both the datasets and the imputation algorithms, so
 nothing runs without it. The upper bounds in `requirements.txt` are not
@@ -43,16 +43,14 @@ next to it.
 
 ## Running the experiments
 
-All commands are run from `src/`.
-
-```bash
-cd src
-```
+The runner scripts are run from the repository root and set the import path
+themselves. To run individual stages with `python -m`, either install the
+package (`pip install -e .`) or export `PYTHONPATH=src` first.
 
 ### Quick check first
 
 ```bash
-python -m injector.selftest
+python -m metric_eval.experiments.injector.selftest
 ```
 
 Runs on synthetic data. It needs neither ImputeGAP nor any cached output, and
@@ -70,14 +68,26 @@ trustworthy.
 or stage by stage:
 
 ```bash
-python -m injector.reactivity.calibrate   # solve severities  -> calibration.json
-python -m injector.reactivity.build       # apply them        -> data.json
-python -m injector.reactivity.score       # all 20 metrics    -> scores.json
-python -m injector.reactivity.aggregate   # tables, heatmaps, invariance checks
+python -m metric_eval.experiments.injector.reactivity.calibrate   # solve severities  -> calibration.json
+python -m metric_eval.experiments.injector.reactivity.build       # apply them        -> data.json
+python -m metric_eval.experiments.injector.reactivity.score       # all 20 metrics    -> scores.json
+python -m metric_eval.experiments.injector.reactivity.aggregate   # tables, heatmaps, invariance checks
 
-python -m injector.response.build         # the same eight across seven damage levels
-python -m injector.response.score
-python -m injector.response.aggregate
+python -m metric_eval.experiments.injector.response.build         # the same eight across seven damage levels
+python -m metric_eval.experiments.injector.response.score
+python -m metric_eval.experiments.injector.response.aggregate
+python -m metric_eval.experiments.injector.summary                # response grid and redundancy (both passes)
+python -m metric_eval.experiments.injector.panels                 # the eight distortion panels
+```
+
+The calibrate, build and score stages also take `--damage-metric rmse`, which
+solves the same grid against an RMSE target into `*_rmse.json` caches beside
+the MAE ones. MAE and ND are pinned by the MAE target, so `injector.summary`
+reads their columns off that second pass.
+```bash
+python -m metric_eval.experiments.injector.reactivity.calibrate --damage-metric rmse
+python -m metric_eval.experiments.injector.reactivity.build     --damage-metric rmse
+python -m metric_eval.experiments.injector.reactivity.score     --damage-metric rmse
 ```
 
 The design behind this experiment, and the reason each distortion is defined
@@ -86,16 +96,17 @@ the way it is, is in [The Injector design](#the-injector-design) below.
 ### Experiment 2 — Algorithm ranking
 
 ```bash
-./run_algo_ranking.sh                   # everything; the build stage takes hours
+./run_algorank.sh                   # everything; the build stage takes hours
 ```
 
 or stage by stage:
 
 ```bash
-python -m algo_ranking.build            # SLOW: 6 algorithms x 54 scenarios x seeds
-python -m algo_ranking.score            # metrics from the cached reconstructions
-python -m algo_ranking.aggregate        # consensus ranks, agreement matrices, heatmaps
-python -m algo_ranking.visualize        # reconstruction plots (not part of the ranking)
+python -m metric_eval.experiments.algorank.build            # SLOW: 6 algorithms x 54 scenarios x seeds
+python -m metric_eval.experiments.algorank.score            # metrics from the cached reconstructions
+python -m metric_eval.experiments.algorank.aggregate        # consensus ranks, agreement matrices, heatmaps
+python -m metric_eval.experiments.algorank.visualize        # reconstruction plots (not part of the ranking)
+python -m metric_eval.experiments.algorank.summarize        # chapter-level tables and figures (needs cis.build)
 ```
 
 `build` is the only genuinely expensive stage in the project. It runs each
@@ -109,13 +120,16 @@ re-run freely afterwards without touching it.
 ./run_cis.sh
 ```
 
-or:
+or, in two stages:
 
 ```bash
-python -m cis
+python -m metric_eval.experiments.cis.build     # about a minute, cached under outputs/time_series/cis/
+python -m metric_eval.experiments.cis           # report and figures, seconds
 ```
 
-Reads the scores Experiment 2 produced, so it needs that to have run first.
+Reads what Experiment 2 cached for the ranking half and what Experiment 1 cached
+for the known-damage half, so both need to have run first. `--force` rebuilds
+the cache.
 
 ### Everything
 
@@ -128,15 +142,15 @@ Reads the scores Experiment 2 produced, so it needs that to have run first.
 Every stage caches its output and skips work already done. To redo it:
 
 ```bash
-python -m injector.score --force
+python -m metric_eval.experiments.injector.score --force
 ```
 
 To work on a subset while developing:
 
 ```bash
-python -m injector.build      --patterns mcar --rates 0.2 0.5
-python -m algo_ranking.score  --datasets chlorine --patterns blackout
-python -m injector.calibrate  --target 0.4
+python -m metric_eval.experiments.injector.build      --patterns mcar --rates 0.2 0.5
+python -m metric_eval.experiments.algorank.score  --datasets chlorine --patterns blackout
+python -m metric_eval.experiments.injector.calibrate  --target 0.4
 ```
 
 Two figures in Experiment 1 (`metric_overview.png` and `condition_grid.png`)
@@ -148,26 +162,28 @@ says so.
 ## What comes out
 
 ```
-plots/
+outputs/plots/
 ├── injector/reactivity/         metric x distortion heatmaps, one per condition,
 │                                plus metric_overview.png and condition_grid.png
 ├── injector/response/           one panel per metric, all eight distortions on
 │                                a shared damage axis
-├── algo_ranking/<dataset>/heatmap/<pattern>_<bucket>.png
-├── algo_ranking/<dataset>/reconstruction/<pattern>_<rate>pct.png
-└── cis/                         gate distribution, CIS against the 8-metric consensus
+├── algorank/<dataset>/heatmap/<pattern>_<bucket>.png
+├── algorank/<dataset>/heatmap/by_rate/<pattern>_<rate>pct.png
+├── algorank/<dataset>/reconstruction/<pattern>_<rate>pct.png
+└── cis/                         gate, coverage, variation axis, known damage
 
-reports/
+outputs/reports/
 ├── injector/reactivity/         raw value tables, metric agreement, invariance checks
 ├── injector/response/           flat / monotonic / non-monotonic per metric
-├── algo_ranking/<dataset>/<pattern>_<bucket>.txt
-└── cis/                         validation, supporting experiments, rejected constructions
+├── algorank/<dataset>/<pattern>_<bucket>.txt
+├── algorank/<dataset>/by_rate/<pattern>_<rate>pct.txt
+└── cis/                         gate, coverage, variation axis, known damage
 
-time_series/                     cached reconstructions — large, and regenerable
+outputs/time_series/                     cached reconstructions — large, and regenerable
 ```
 
-`time_series/` is around 350 MB and is fully reproducible from the code, so it
-is not worth version-controlling. `plots/` and `reports/` are what the thesis
+`outputs/time_series/` is around 400 MB and is fully reproducible from the code, so it
+is not worth version-controlling. `outputs/plots/` and `outputs/reports/` are what the thesis
 cites and are worth keeping.
 
 ---
@@ -198,7 +214,7 @@ Each experiment then narrows the set further:
 |---|---|---|
 | 1 — Injector | 19 | scored on all 20, reported on the four categories above the domain-specific one |
 | 2 — Algorithm ranking | 8 | two per category: MAE/RMSE, R²/MI, WD/JSD, DTW/sMAE |
-| 3 — CIS | 4 | one per category: MAE, WD, DTW, MI |
+| 3 — CIS | 3 | chosen so that no distortion goes undetected: MAE, WD, MI |
 
 Three of the 20 are computed on the **whole series** rather than at the missing
 positions only: ACF, DTW and sMAE. Masking them would destroy what they measure,
@@ -311,7 +327,7 @@ positions is an integer, so reorder's damage moves in steps of roughly
 else lands one to two orders of magnitude inside that. Per-series achieved
 damage is recorded either way, so nothing is hidden by the choice.
 
-**Run `python -m injector.selftest` before trusting a run.** It checks the two
+**Run `python -m metric_eval.experiments.injector.selftest` before trusting a run.** It checks the two
 things the design rests on: that every distortion can actually be solved to the
 target on this data, and that the declared structural invariants hold at the
 array level, before any metric is involved. If a target turns out to be
@@ -324,58 +340,74 @@ reach the target.
 ## Layout
 
 ```
+run_injector.sh               Experiment 1, end to end
+run_algorank.sh               Experiment 2, end to end
+run_cis.sh                    Experiment 3, end to end
+run_all.sh                    all three, in dependency order
+_run_common.sh                sourced by the four above; not run directly
+
 src/
-├── run_injector.sh           Experiment 1, end to end
-├── run_algo_ranking.sh       Experiment 2, end to end
-├── run_cis.sh                Experiment 3, end to end
-├── run_all.sh                all three, in dependency order
-├── _run_common.sh            sourced by the four above; not run directly
-│
-├── core/                     shared by all three experiments
-│   ├── metrics.py            22 metric functions, one formula each
-│   ├── metric_config.py      the 20 that are scored, with categories
-│   │                         and directions
-│   ├── scoring.py            compute_all_scores — every metric, every reconstruction
-│   ├── ranking.py            rank_algorithms
-│   ├── buckets.py            the rate-bucket mean both experiments use
-│   ├── missingness_patterns.py
-│   ├── dataset_io.py         (T, N) arrays <-> the [series][timestep] JSON cache
-│   └── data/                 ground-truth loading and normalisation
-│
-├── injector/                 Experiment 1
-│   ├── config.py             single source of truth for the design
-│   ├── distortions.py        the eight distortions
-│   ├── selftest.py
-│   ├── reactivity/           one damage level, eight kinds, 24 scenarios
-│   │   ├── calibrate.py      solves each severity to a common damage target
-│   │   ├── build.py  score.py  aggregate.py
-│   │   ├── analysis.py       spread, z-scores, metric agreement
-│   │   ├── invariance.py     machine-checked exact predictions
-│   │   └── plotting.py
-│   └── response/             seven damage levels, one scenario
-│       ├── build.py  score.py  aggregate.py
-│       └── plotting.py
-│
-├── algo_ranking/             Experiment 2
-│   ├── config.py             datasets, algorithms, the kept metric set
-│   ├── algorithms.py         the six ImputeGAP algorithms
-│   ├── build.py  score.py  aggregate.py
-│   ├── _run_algorithm.py     one algorithm in one subprocess
-│   ├── cache.py              reading a scenario back from disk
-│   ├── analysis.py           ranks, consensus, agreement
-│   ├── report.py             the text ranking summary
-│   ├── plotting.py  visualize.py
-│
-├── cis/                      Experiment 3
-│   ├── config.py             components, scales, gate thresholds
-│   ├── gate.py               stability gate and the composite score
-│   ├── injector_data.py      reads Experiment 1's two caches
-│   ├── validation.py         agreement with the 8-metric panel
-│   ├── experiments.py        the design choices behind CIS
-│   ├── plotting.py
-│   └── __main__.py           `python -m cis`
-│
-└── time_series/  plots/  reports/       generated output
+└── metric_eval/              the one installable package
+    ├── paths.py              where the outputs go (everything under outputs/)
+    │
+    ├── core/                 shared by all three experiments
+    │   ├── metrics.py        22 metric functions, one formula each
+    │   ├── metric_config.py  the 20 that are scored, with categories
+    │   │                     and directions
+    │   ├── scoring.py        compute_all_scores — every metric, every reconstruction
+    │   ├── ranking.py        rank_algorithms
+    │   ├── buckets.py        the rate-bucket mean both experiments use
+    │   ├── missingness_patterns.py
+    │   ├── dataset_io.py     (T, N) arrays <-> the [series][timestep] JSON cache
+    │   └── data/             ground-truth loading and normalisation
+    │
+    ├── experiments/
+    │   ├── injector/         Experiment 1
+    │   │   ├── config.py     single source of truth for the design
+    │   │   ├── distortions.py  the eight distortions
+    │   │   ├── selftest.py
+    │   │   ├── reactivity/   one damage level, eight kinds, 24 scenarios
+    │   │   │   ├── calibrate.py  solves each severity to a common damage target
+    │   │   │   ├── build.py  score.py  aggregate.py
+    │   │   │   ├── analysis.py   spread, z-scores, metric agreement
+    │   │   │   ├── invariance.py machine-checked exact predictions
+    │   │   │   └── plotting.py
+    │   │   ├── response/     seven damage levels, one scenario
+    │   │   │   ├── build.py  score.py  aggregate.py
+    │   │   │   └── plotting.py
+    │   │   ├── summary.py    response grid and redundancy correlations
+    │   │   └── panels.py     the eight distortion panels of the thesis
+    │   │
+    │   ├── algorank/         Experiment 2
+    │   │   ├── config.py     datasets, algorithms, the kept metric set
+    │   │   ├── algorithms.py the six ImputeGAP algorithms
+    │   │   ├── build.py  score.py  aggregate.py
+    │   │   ├── _run_algorithm.py  one algorithm in one subprocess
+    │   │   ├── cache.py      reading a scenario back from disk
+    │   │   ├── analysis.py   ranks, consensus, agreement
+    │   │   ├── report.py     the text ranking summary
+    │   │   ├── plotting.py  visualize.py
+    │   │   ├── experiments.py  the chapter-level statistics
+    │   │   ├── summary_report.py  summary_plots.py
+    │   │   └── summarize.py  python -m metric_eval.experiments.algorank.summarize
+    │   │
+    │   └── cis/              Experiment 3
+    │       ├── config.py     components and gate thresholds
+    │       ├── build.py      reference reconstruction and gate ratios
+    │       ├── injector_data.py  reads Experiment 1's two caches
+    │       ├── gate.py       the stability gate
+    │       ├── score.py      the components and the composite
+    │       ├── experiments.py  the analyses behind every table
+    │       ├── report.py  plotting.py
+    │       └── __main__.py   python -m metric_eval.experiments.cis
+    │
+    └── background/           the introduction's figures, from the caches
+        └── figures.py        python -m metric_eval.background.figures
+
+outputs/                      everything the code writes; nothing in src/ is
+├── time_series/              cached reconstructions (gitignored, regenerable)
+├── plots/                    the figures the thesis includes
+└── reports/                  the numbers the thesis cites
 
 tests/                        pytest suite over core/metrics.py
 pyproject.toml                packaging; dependencies are read from
@@ -408,7 +440,7 @@ permutation of the values. Those identities are load-bearing for the thesis's
 redundancy and blind-spot arguments, so they are worth asserting rather than
 assuming.
 
-`python -m injector.selftest` is the equivalent check for the Experiment 1
+`python -m metric_eval.experiments.injector.selftest` is the equivalent check for the Experiment 1
 design and does not need pytest.
 
 ---
@@ -447,11 +479,11 @@ be worth changing:
 | `injector/config.py` | `TARGET_DAMAGE` | the damage every distortion is solved to, in σ |
 | | `DAMAGE_LEVELS` | the seven levels of the sweep |
 | | `PATTERNS`, `RATES` | missingness geometries and rates |
-| `algo_ranking/config.py` | `ALGO_CATEGORIES` | the kept metrics, grouped by category |
+| `experiments/algorank/config.py` | `ALGO_CATEGORIES` | the kept metrics, grouped by category |
 | | `DATASETS`, `RATES`, `N_SEEDS` | scenario coverage |
-| `cis/cis.py` | `CIS_METRICS` | the four metrics the composite uses |
+| `cis/config.py` | `CIS_METRICS` | the metrics the composite uses |
 | | `FLAT_THRESHOLD`, `UNSTABLE_THRESHOLD` | the stability gate |
-| | `MI_SCALE` | the empirical scale for the MI component |
+| | `ADOPTED_POWER` | the exponent of the power mean |
 
 Changing the metric set in Experiment 2 costs an `aggregate` run and nothing
 else. `aggregate` checks the cached scores against the current selection and,
@@ -459,3 +491,22 @@ where a metric is missing, computes only that metric from the cached
 reconstructions before continuing (`score.ensure_scored`). The expensive part
 of a scoring pass is DTW on 2000-timestep series, and there is no reason to
 pay it again to add a spectral distance.
+
+---
+
+## Use of AI
+
+AI assistants by Anthropic (Claude) were used in the process of writing the
+thesis this repository accompanies, and in building this repository itself:
+mainly for the final review of the thesis text, for generating a part of the
+plots and illustrations from the author's own material, for the broad
+analysis of all scenarios of the two experiments, and to generate parts of
+the code.
+
+Every generated part was reviewed and verified by the author. The pipelines
+run from the author's own experimental design, the figures read the cached
+results of the author's experiments and regenerate without any AI model, and
+every number the thesis cites is written into the reports under
+`outputs/reports/`. All ideas and final decisions are the author's own, as
+is the creative and cognitive process behind the research, the analyses and
+the code.

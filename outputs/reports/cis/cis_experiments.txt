@@ -1,0 +1,127 @@
+CIS EXPERIMENTS
+==============================================================================
+
+scenarios 144, algorithms 6, components MAE, WD, MI, gate [0.15, 3.0] on the standard-deviation ratio, exponent p=2.0
+
+1. GATE OUTCOME
+   of 864 (scenario, algorithm) pairs: 478 kept, 240 flat, 146 unstable
+   algorithm                         mcar                 scattered                  blackout
+   CDRec              48/48  (   1.003)       48/48  (   0.908)        0/48  (   0.000)
+   ROSL               48/48  (   0.783)       48/48  (   0.684)        0/48  (   0.000)
+   DynaMMo            48/48  (   0.979)       48/48  (   0.915)        0/48  (   0.000)
+   STMVL               7/48  (   2.895)       13/48  (   1.234)        0/48  (   0.000)
+   BRITS              22/48  (   4.143)       16/48  (  11.993)        0/48  (  32.658)
+   MPIN               48/48  (   0.434)       48/48  (   0.390)       36/48  (   0.252)
+
+2. SPREAD MEASURE: STANDARD DEVIATION AGAINST INTERQUARTILE RANGE
+   the two disagree on 203 pairs: flat->pass 146, pass->unstable 57
+   IQR reads exactly 0 for 52 reconstructions that are not constant
+   their distinct-value counts run from 723 to 4988
+   genuinely constant reconstructions: 228
+
+3. THRESHOLD SENSITIVITY
+   flat cut (upper held at 3.0):
+       0.05  survivors  490  rankable  96
+       0.10  survivors  485  rankable  96
+       0.15  survivors  478  rankable  96
+       0.20  survivors  465  rankable  96
+       0.30  survivors  425  rankable  94
+       0.40  survivors  390  rankable  89
+   upper cut (flat held at 0.15):
+        2.0  survivors  463  rankable  96
+        3.0  survivors  478  rankable  96
+        5.0  survivors  495  rankable  96
+       10.0  survivors  528  rankable  96
+
+4. COVERAGE
+   rankable scenarios 96 of 144
+   by geometry {'mcar': 48, 'scattered': 48}
+   by rate     {10: 12, 20: 12, 30: 12, 40: 12, 50: 12, 60: 12, 70: 12, 80: 12}
+   by dataset  {'temperature': 16, 'chlorine': 16, 'climate': 16, 'electricity': 16, 'drift': 16, 'forecast-economy': 16}
+   survivors per scenario {0: 12, 1: 36, 4: 50, 5: 34, 6: 12}
+
+5. COMPONENT DISTANCES OVER THE SURVIVORS  (1.0 = the reference)
+   component         p10   median      p90
+   MAE             0.251    0.798    1.052
+   WD              0.131    0.471    0.833
+   MI              0.432    0.820    0.959
+
+6. VARIATION PREFERENCE, UNGATED, NON-BLACKOUT   (positive: keeps the variation first)
+   ranking        10-30     40-50     60-80
+   MAE             0.20      0.19      0.30
+   RMSE            0.10     -0.04      0.10
+   WD              0.39      0.57      0.82
+   JSD             0.67      0.75      0.85
+   DTW             0.01     -0.06      0.22
+   sMAE            0.15      0.20      0.24
+   R2             -0.05     -0.12      0.05
+   MI              0.35      0.54      0.72
+   CIS             0.26      0.41      0.74
+
+6. VARIATION PREFERENCE, GATE SURVIVORS   (positive: keeps the variation first)
+   ranking        10-30     40-50     60-80
+   MAE             0.20      0.19      0.24
+   RMSE            0.10     -0.04      0.08
+   WD              0.39      0.57      0.68
+   JSD             0.67      0.75      0.71
+   DTW             0.01     -0.06     -0.03
+   sMAE            0.15      0.20      0.24
+   R2             -0.05     -0.12      0.04
+   MI              0.35      0.54      0.46
+   CIS             0.26      0.41      0.55
+
+7. CIS AGAINST EACH SINGLE METRIC  (gate survivors)
+   MI 0.86  MAE 0.82  WD 0.81  RMSE 0.74  sMAE 0.69  R2 0.66  JSD 0.64  DTW 0.61
+
+8. WHAT EACH METRIC SEES UNDER EQUAL POINTWISE DAMAGE
+   (distance to the truth; near zero is a blind spot)
+   metric       noise      bias   reorder discretis       lag    smooth    spikes   rescale
+   MAE          0.613     0.613     0.611     0.611     0.610     0.612     0.603     0.613
+   RMSE         0.608     0.485     0.960     0.607     0.816     0.662     2.137     0.644
+   WD           0.337     0.613     0.000     0.611     0.081     0.462     0.562     0.613
+   JSD          0.241     0.553     0.000     0.904     0.020     0.369     0.033     0.448
+   DTW          0.675     0.496     0.917     0.731     0.387     0.686     2.507     0.756
+   sMAE         0.631     0.688     1.054     0.655     0.687     0.855     1.647     0.374
+   R2           0.370     0.236     0.925     0.384     0.669     0.450     4.567     0.441
+   MI           0.670     0.217     0.590     0.619     0.705     0.678     0.456     0.269
+
+9. THE COMPOSITE UNDER EQUAL POINTWISE DAMAGE
+   distortion        MAE       WD       MI      CIS
+   reorder         0.611    0.000    0.590    0.491
+   bias            0.613    0.613    0.217    0.516
+   rescale         0.613    0.613    0.269    0.524
+   lag             0.610    0.081    0.705    0.541
+   spikes          0.603    0.562    0.456    0.544
+   noise           0.613    0.337    0.670    0.559
+   smooth          0.612    0.462    0.678    0.591
+   discretise      0.611    0.611    0.619    0.614
+   coverage 0.896 (least detected: reorder), spread 1.25
+   gate fired on 0 of 192 distortion-conditions
+
+10. COMPONENT AND EXPONENT VARIANTS ON THE EQUAL-DAMAGE RUN
+   variant                               coverage   spread  least detected
+   adopted (MAE, WD, MI)                    0.896     1.25  reorder
+   RMSE in place of MAE                     0.699     2.78  bias
+   JSD in place of WD                       0.822     1.66  spikes
+   R2 in place of MI                        0.567     5.87  noise
+   DTW added                                0.752     2.62  bias
+   without the divergence component         0.795     1.43  bias
+   without the dependency component         0.799     1.42  reorder
+   MAE alone                                0.988     1.02  spikes
+   WD alone                                 0.000      inf  reorder
+   MI alone                                 0.414     3.24  bias
+   exponent p=1.0                           0.777     1.53  reorder
+   exponent p=2.0                           0.896     1.25  reorder
+   exponent p=inf                           0.942     1.17  spikes
+
+11. THE COMPOSITE ACROSS THE DAMAGE SWEEP
+   distortion      0.1    0.2    0.3    0.4    0.5    0.6    0.7  monotone    rise
+   noise          0.21   0.31   0.40   0.48   0.56   0.63   0.71      True   0.505
+   bias           0.15   0.23   0.33   0.42   0.51   0.60   0.71      True   0.557
+   reorder        0.12   0.22   0.32   0.40   0.49   0.57   0.65      True   0.533
+   discretise     0.16   0.33   0.42   0.52   0.61   0.70   0.80      True   0.638
+   lag            0.22   0.33   0.40   0.47   0.53   0.59   0.66      True   0.439
+   smooth         0.22   0.32   0.40   0.49   0.59   0.68   0.76      True   0.541
+   spikes         0.12   0.22   0.35   0.44   0.53   0.66   0.76      True   0.636
+   rescale        0.15   0.22   0.32   0.42   0.52   0.61   0.71      True   0.569
+   monotone in 8 of 8
