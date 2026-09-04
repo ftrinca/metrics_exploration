@@ -70,39 +70,6 @@ def gate_outcome(cache: dict[tuple, dict]) -> dict:
     return {"kept": kept, "flat": flat, "unstable": unstable, "per_algo": per_algo}
 
 
-def instrument_comparison(cache: dict[tuple, dict]) -> dict:
-    """How the two spread measures classify the same reconstructions.
-
-    The interquartile range ignores the tails by construction, so under a
-    scattered pattern it reads exactly zero for a reconstruction that is constant
-    over most of a burst and varies outside it. The standard deviation does not.
-    """
-    changed: dict[tuple, int] = {}
-    zero_iqr_varied = []
-    for key, payload in cache.items():
-        for algo, std in payload["std_ratio"].items():
-            iqr = payload["iqr_ratio"][algo]
-            unique = payload["n_unique"][algo]
-            if passes(iqr) != passes(std):
-                label = ("flat" if iqr < FLAT_THRESHOLD else
-                         "unstable" if iqr > UNSTABLE_THRESHOLD else "pass")
-                other = ("flat" if std < FLAT_THRESHOLD else
-                         "unstable" if std > UNSTABLE_THRESHOLD else "pass")
-                changed[(label, other)] = changed.get((label, other), 0) + 1
-            if iqr == 0.0 and unique > 1.0:
-                zero_iqr_varied.append((key, algo, unique))
-    return {
-        "n_reclassified": sum(changed.values()),
-        "transitions": changed,
-        "zero_iqr_but_varied": len(zero_iqr_varied),
-        "unique_range": ((min(u for *_, u in zero_iqr_varied),
-                          max(u for *_, u in zero_iqr_varied))
-                         if zero_iqr_varied else None),
-        "n_constant": sum(1 for p in cache.values()
-                          for u in p["n_unique"].values() if u == 1.0),
-    }
-
-
 def threshold_sensitivity(cache: dict[tuple, dict],
                           flats=(0.05, 0.10, 0.15, 0.20, 0.30, 0.40),
                           uppers=(2.0, 3.0, 5.0, 10.0)) -> dict:
@@ -255,6 +222,7 @@ def equal_damage_response(conditions: dict[str, dict],
         "per_component": {d: {m: float(np.mean(v)) for m, v in c.items()}
                           for d, c in per_component.items()},
         "coverage": float(values.min() / values.mean()),
+        "evenness": float(values.min() / values.max()),
         "spread": float(values.max() / values.min()),
         "least_detected": min(mean, key=mean.get),
         "gate_fired": gate_fired, "n": total,
@@ -266,12 +234,12 @@ def variant_coverage(conditions: dict[str, dict]) -> dict:
     out = {}
     for label, metrics in COMPONENT_VARIANTS:
         result = equal_damage_response(conditions, metrics)
-        out[label] = {"coverage": result["coverage"], "spread": result["spread"],
+        out[label] = {"evenness": result["evenness"],
                       "least_detected": result["least_detected"]}
     for power in POWER_VARIANTS:
         result = equal_damage_response(conditions, CIS_METRICS, power)
         out[f"exponent p={power}"] = {
-            "coverage": result["coverage"], "spread": result["spread"],
+            "evenness": result["evenness"],
             "least_detected": result["least_detected"]}
     return out
 

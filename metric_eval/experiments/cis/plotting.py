@@ -24,38 +24,34 @@ def _save(fig, path: str) -> None:
 
 
 def plot_gate_distribution(cache: dict[tuple, dict], output_path: str) -> None:
-    """Standard-deviation ratio of every pair beside the interquartile ratio.
+    """Standard-deviation ratio of every (scenario, algorithm) pair.
 
-    The right panel is what rules the interquartile range out as the gate's
-    instrument: the points on its floor are reconstructions it reads as constant
-    while they carry hundreds of distinct values.
+    The dashed lines are the gate's two cuts, so the figure shows what the gate
+    keeps and what it removes, per missingness pattern.
     """
-    fig, (left, right) = plt.subplots(1, 2, figsize=(9.6, 3.9))
+    fig, ax = plt.subplots(figsize=(6.4, 3.9))
     rng = np.random.default_rng(0)
 
-    for ax, field, title in ((left, "std_ratio", "standard-deviation ratio"),
-                             (right, "iqr_ratio", "interquartile ratio")):
-        for pi, pattern in enumerate(PATTERNS):
-            for ai, algo in enumerate(ALGO_NAMES):
-                values = [p[field][algo] for (_, pat, _), p in cache.items()
-                          if pat == pattern and algo in p[field]]
-                if not values:
-                    continue
-                x = pi + rng.uniform(-0.3, 0.3, len(values)) + (ai - 2.5) * 0.04
-                ax.scatter(x, values, color=ALGO_COLORS[algo], s=14, alpha=0.7,
-                           edgecolor="white", linewidth=0.25,
-                           label=algo if (pi == 0 and ax is left) else None)
-        ax.axhline(FLAT_THRESHOLD, color="gray", ls="--", lw=0.9)
-        ax.axhline(UNSTABLE_THRESHOLD, color="gray", ls="--", lw=0.9)
-        ax.set_yscale("symlog", linthresh=0.05)
-        ax.set_ylim(-0.004, 400)
-        ax.set_xticks(range(len(PATTERNS)))
-        ax.set_xticklabels(PATTERNS)
-        ax.set_title(title, fontsize=9)
-        ax.grid(True, axis="y", alpha=0.3, which="both")
-    left.set_ylabel("ratio to the truth")
-    left.legend(fontsize=6.5, ncol=6, loc="upper center",
-                bbox_to_anchor=(1.05, 1.22), frameon=False)
+    for pi, pattern in enumerate(PATTERNS):
+        for ai, algo in enumerate(ALGO_NAMES):
+            values = [p["std_ratio"][algo] for (_, pat, _), p in cache.items()
+                      if pat == pattern and algo in p["std_ratio"]]
+            if not values:
+                continue
+            x = pi + rng.uniform(-0.3, 0.3, len(values)) + (ai - 2.5) * 0.04
+            ax.scatter(x, values, color=ALGO_COLORS[algo], s=14, alpha=0.7,
+                       edgecolor="white", linewidth=0.25,
+                       label=algo if pi == 0 else None)
+    ax.axhline(FLAT_THRESHOLD, color="gray", ls="--", lw=0.9)
+    ax.axhline(UNSTABLE_THRESHOLD, color="gray", ls="--", lw=0.9)
+    ax.set_yscale("symlog", linthresh=0.05)
+    ax.set_ylim(-0.004, 400)
+    ax.set_xticks(range(len(PATTERNS)))
+    ax.set_xticklabels(PATTERNS)
+    ax.grid(True, axis="y", alpha=0.3, which="both")
+    ax.set_ylabel("ratio to the truth")
+    ax.legend(fontsize=6.5, ncol=6, loc="upper center",
+              bbox_to_anchor=(0.5, 1.14), frameon=False)
     _save(fig, output_path)
 
 

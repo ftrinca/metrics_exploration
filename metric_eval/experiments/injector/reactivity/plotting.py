@@ -26,6 +26,11 @@ CONDITION_ORDER = [(p, b) for p in PATTERNS for b in RANGE_BUCKETS]
 METRIC_CATEGORY = {m: cat for cat in INJECTOR_CATEGORIES for m in CATEGORIES[cat]}
 MARKER_RED = "#A32A31"
 
+# Metrics read off the RMSE-calibrated pass; their columns are drawn in a
+# different hue so the two calibrations are never compared against each other,
+# matching the chapter's response grid.
+RMSE_PASS_METRICS = ("mae", "nd")
+
 
 def _blind_cells() -> set[tuple[str, str]]:
     """(metric, distortion) cells an invariant pins at the perfect value."""
@@ -50,7 +55,15 @@ def _draw_grid(ax, dev: dict[str, dict[str, float] | None],
     """One response-grid panel onto an axis; NaN columns (pinned metrics) stay
     white with a small note."""
     data = _data_matrix(dev)
-    ax.imshow(data, cmap="Blues", vmin=0, vmax=1, aspect="auto")
+    rmse_cols = [j for j, m in enumerate(INJECTOR_METRICS)
+                 if m in RMSE_PASS_METRICS]
+    mae_data = data.copy()
+    rmse_data = np.full_like(data, np.nan)
+    for j in rmse_cols:
+        rmse_data[:, j] = data[:, j]
+        mae_data[:, j] = np.nan
+    ax.imshow(mae_data, cmap="Blues", vmin=0, vmax=1, aspect="auto")
+    ax.imshow(rmse_data, cmap="Oranges", vmin=0, vmax=1, aspect="auto")
     for j in range(1, len(INJECTOR_METRICS)):
         ax.axvline(j - 0.5, color="white", lw=1.0)
     for i in range(1, len(DISTORTION_NAMES)):

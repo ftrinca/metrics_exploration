@@ -5,7 +5,6 @@ CATEGORIES: dict[str, list[str]] = {
     "Distributional Divergence": ["wd", "jsd", "kld"],
     "Temporal Structure": ["acf", "dtw", "smae"],
     "Statistical Agreement": ["pearson", "mi", "r2", "tost", "ba", "cdt"],
-    "Domain-specific": ["pfc"],
 }
 
 METRIC_LIST: list[str] = [m for metrics in CATEGORIES.values() for m in metrics]
@@ -36,5 +35,4 @@ METRIC_DIRECTION: dict[str, str] = {
     "r2":      "higher",
     "tost":    "lower",
     "ba":      "lower",
-    "pfc":     "higher",
 }

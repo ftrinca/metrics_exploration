@@ -17,19 +17,14 @@ def mean_reconstruction(y_true: np.ndarray, mask: np.ndarray) -> np.ndarray:
     """Every masked position set to the mean of its own series' observed values.
 
     This is the reference every CIS component is measured against: it needs no
-    model, it exists in every scenario, and it is the reconstruction a
-    practitioner falls back on when nothing else is available.
+    model, it exists in every scenario, and it is the reconstruction to fall
+    back on when nothing else is available.
     """
     out = y_true.copy().astype(np.float64)
     for s in range(y_true.shape[0]):
         observed = y_true[s][~mask[s]]
         out[s][mask[s]] = float(np.mean(observed)) if observed.size else 0.0
     return out
-
-
-def _iqr(x: np.ndarray) -> float:
-    q75, q25 = np.percentile(x, [75, 25])
-    return float(q75 - q25)
 
 
 def _std_ratio(reconstruction: np.ndarray, y_true: np.ndarray,
@@ -51,7 +46,6 @@ def _scenario_scores(dataset: str, pattern: str, rate: float) -> dict:
 def build_scenario(dataset: str, pattern: str, rate: float) -> dict:
     """Reference scores and standard-deviation ratios of one scenario."""
     per_seed_ratio: dict[str, list[float]] = {}
-    per_seed_iqr: dict[str, list[float]] = {}
     per_seed_unique: dict[str, list[float]] = {}
     reference = None
 
@@ -79,15 +73,12 @@ def build_scenario(dataset: str, pattern: str, rate: float) -> dict:
                 continue
             per_seed_ratio.setdefault(name, []).append(
                 _std_ratio(built[name], y_true, mask))
-            per_seed_iqr.setdefault(name, []).append(
-                _iqr(built[name][mask]) / (_iqr(y_true[mask]) + 1e-12))
             per_seed_unique.setdefault(name, []).append(
                 float(np.unique(built[name][mask]).size))
 
     return {
         "reference": reference,
         "std_ratio": {a: float(np.mean(v)) for a, v in per_seed_ratio.items()},
-        "iqr_ratio": {a: float(np.mean(v)) for a, v in per_seed_iqr.items()},
         "n_unique": {a: float(np.mean(v)) for a, v in per_seed_unique.items()},
         "scores": _scenario_scores(dataset, pattern, rate),
     }

@@ -5,7 +5,7 @@ from metric_eval.experiments.cis.config import (ADOPTED_POWER, CIS_METRICS, FLAT
 from metric_eval.experiments.cis.experiments import (RATE_BANDS, agreement_with_metrics, blind_spots,
                                          component_profile, coverage, damage_sweep,
                                          equal_damage_response, gate_outcome,
-                                         instrument_comparison, threshold_sensitivity,
+                                         threshold_sensitivity,
                                          variant_coverage, variation_preference)
 
 
@@ -34,18 +34,8 @@ def write_report(cache: dict[tuple, dict], conditions: dict, sweep: dict) -> str
         L.append(f"   {algo:12s}{cells}")
     L.append("")
 
-    ic = instrument_comparison(cache)
-    L += ["2. SPREAD MEASURE: STANDARD DEVIATION AGAINST INTERQUARTILE RANGE",
-          f"   the two disagree on {ic['n_reclassified']} pairs: " +
-          ", ".join(f"{a}->{b} {n}" for (a, b), n in sorted(ic["transitions"].items())),
-          f"   IQR reads exactly 0 for {ic['zero_iqr_but_varied']} reconstructions "
-          f"that are not constant",
-          f"   their distinct-value counts run from {ic['unique_range'][0]:.0f} to "
-          f"{ic['unique_range'][1]:.0f}",
-          f"   genuinely constant reconstructions: {ic['n_constant']}", ""]
-
     ts = threshold_sensitivity(cache)
-    L += ["3. THRESHOLD SENSITIVITY", "   flat cut (upper held at 3.0):"]
+    L += ["2. THRESHOLD SENSITIVITY", "   flat cut (upper held at 3.0):"]
     for cut, info in ts["flat"].items():
         L.append(f"      {cut:5.2f}  survivors {info['survivors']:4d}  "
                  f"rankable {info['rankable']:3d}")
@@ -56,7 +46,7 @@ def write_report(cache: dict[tuple, dict], conditions: dict, sweep: dict) -> str
     L.append("")
 
     cv = coverage(cache)
-    L += ["4. COVERAGE",
+    L += ["3. COVERAGE",
           f"   rankable scenarios {cv['n_rankable']} of {len(cache)}",
           f"   by geometry {cv['by_geometry']}",
           f"   by rate     {cv['by_rate']}",
@@ -64,7 +54,7 @@ def write_report(cache: dict[tuple, dict], conditions: dict, sweep: dict) -> str
           f"   survivors per scenario {cv['survivor_histogram']}", ""]
 
     cp = component_profile(cache)
-    L += ["5. COMPONENT DISTANCES OVER THE SURVIVORS  (1.0 = the reference)",
+    L += ["4. COMPONENT DISTANCES OVER THE SURVIVORS  (1.0 = the reference)",
           f"   {'component':12s}{'p10':>9}{'median':>9}{'p90':>9}"]
     for metric, info in cp.items():
         L.append(f"   {label(metric):12s}{info['p10']:9.3f}{info['median']:9.3f}"
@@ -73,7 +63,7 @@ def write_report(cache: dict[tuple, dict], conditions: dict, sweep: dict) -> str
 
     for gated, title in ((False, "ungated, non-blackout"), (True, "gate survivors")):
         vp = variation_preference(cache, gated=gated)
-        L += [f"6. VARIATION PREFERENCE, {title.upper()}"
+        L += [f"5. VARIATION PREFERENCE, {title.upper()}"
               "   (positive: keeps the variation first)",
               "   " + f"{'ranking':10s}" + "".join(f"{b:>10}" for b in RATE_BANDS)]
         for ranking in list(ALGO_METRICS) + ["CIS"]:
@@ -82,13 +72,13 @@ def write_report(cache: dict[tuple, dict], conditions: dict, sweep: dict) -> str
         L.append("")
 
     am = agreement_with_metrics(cache)
-    L += ["7. CIS AGAINST EACH SINGLE METRIC  (gate survivors)",
+    L += ["6. CIS AGAINST EACH SINGLE METRIC  (gate survivors)",
           "   " + "  ".join(f"{label(m)} {v:.2f}" for m, v in
                             sorted(am.items(), key=lambda x: -x[1])), ""]
 
     bs = blind_spots(conditions)
     distortions = list(next(iter(bs.values())))
-    L += ["8. WHAT EACH METRIC SEES UNDER EQUAL POINTWISE DAMAGE",
+    L += ["7. WHAT EACH METRIC SEES UNDER EQUAL POINTWISE DAMAGE",
           "   (distance to the truth; near zero is a blind spot)",
           "   " + f"{'metric':8s}" + "".join(f"{d[:9]:>10}" for d in distortions)]
     for metric in ALGO_METRICS:
@@ -97,7 +87,7 @@ def write_report(cache: dict[tuple, dict], conditions: dict, sweep: dict) -> str
     L.append("")
 
     ed = equal_damage_response(conditions)
-    L += ["9. THE COMPOSITE UNDER EQUAL POINTWISE DAMAGE",
+    L += ["8. THE COMPOSITE UNDER EQUAL POINTWISE DAMAGE",
           "   " + f"{'distortion':12s}" +
           "".join(f"{label(m):>9}" for m in CIS_METRICS) + f"{'CIS':>9}"]
     for distortion in sorted(ed["per_distortion"], key=ed["per_distortion"].get):
@@ -105,21 +95,21 @@ def write_report(cache: dict[tuple, dict], conditions: dict, sweep: dict) -> str
                  "".join(f"{ed['per_component'][distortion][m]:9.3f}"
                          for m in CIS_METRICS) +
                  f"{ed['per_distortion'][distortion]:9.3f}")
-    L += [f"   coverage {ed['coverage']:.3f} (least detected: {ed['least_detected']}), "
-          f"spread {ed['spread']:.2f}",
+    L += [f"   weakest/strongest {ed['evenness']:.2f} "
+          f"(least detected: {ed['least_detected']})",
           f"   gate fired on {ed['gate_fired']} of {ed['n']} distortion-conditions", ""]
 
     vc = variant_coverage(conditions)
-    L += ["10. COMPONENT AND EXPONENT VARIANTS ON THE EQUAL-DAMAGE RUN",
-          f"   {'variant':36s}{'coverage':>10}{'spread':>9}  least detected"]
+    L += ["9. COMPONENT AND EXPONENT VARIANTS ON THE EQUAL-DAMAGE RUN",
+          f"   {'variant':36s}{'weakest/strongest':>19}  least detected"]
     for variant, info in vc.items():
-        L.append(f"   {variant:36s}{info['coverage']:10.3f}{info['spread']:9.2f}"
+        L.append(f"   {variant:36s}{info['evenness']:19.2f}"
                  f"  {info['least_detected']}")
     L.append("")
 
     sw = damage_sweep(sweep)
     levels = next(iter(sw.values()))["damage_levels"]
-    L += ["11. THE COMPOSITE ACROSS THE DAMAGE SWEEP",
+    L += ["10. THE COMPOSITE ACROSS THE DAMAGE SWEEP",
           "   " + f"{'distortion':12s}" + "".join(f"{l:>7}" for l in levels) +
           f"{'monotone':>10}{'rise':>8}"]
     for distortion, info in sw.items():

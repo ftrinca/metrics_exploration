@@ -217,9 +217,3 @@ def nd(y_true, y_pred):
     if denom == 0:
         return 0.0
     return float(np.sum(np.abs(y_true - y_pred)) / denom)
-
-
-def pfc(y_true, y_pred, tolerance=0.10):
-    """Percentage of positions within `tolerance` relative error, in [0, 100]. Higher is better."""
-    rel_err = np.abs(y_true - y_pred) / (np.abs(y_true) + 1e-10)
-    return float(np.mean(rel_err <= tolerance) * 100)

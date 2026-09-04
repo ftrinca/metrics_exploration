@@ -11,8 +11,9 @@ CIS_METRICS = ("mae", "wd", "mi")
 REFERENCE_NAME = "MEAN"
 
 # Both thresholds are read off Experiment 2's standard-deviation ratios: a constant
-# reconstruction sits at exactly 0, and no algorithm that does not diverge exceeds
-# 1.7, which leaves the band up to BRITS's median of 13.2 empty.
+# reconstruction sits at exactly 0 and a diverging one far above 1 (BRITS's median
+# over all scenarios is 13.5). The threshold-sensitivity section of the report shows
+# that moving either cut over a wide range keeps the same scenarios rankable.
 FLAT_THRESHOLD = 0.15
 UNSTABLE_THRESHOLD = 3.0
 

@@ -151,7 +151,17 @@ def plot_response_grid(grid: dict[str, dict[str, float]],
         data[:, j] = column / top if top > 0 else 0.0
 
     fig, ax = plt.subplots(figsize=(11.5, 4.4))
-    im = ax.imshow(data, cmap="Blues", vmin=0, vmax=1, aspect="auto")
+    # Columns read off the RMSE-calibrated pass are drawn in a different hue,
+    # so the two calibrations cannot be compared against each other by eye.
+    rmse_cols = [j for j, m in enumerate(INJECTOR_METRICS)
+                 if m in RMSE_PASS_METRICS]
+    mae_data = data.copy()
+    rmse_data = np.full_like(data, np.nan)
+    for j in rmse_cols:
+        rmse_data[:, j] = data[:, j]
+        mae_data[:, j] = np.nan
+    im = ax.imshow(mae_data, cmap="Blues", vmin=0, vmax=1, aspect="auto")
+    ax.imshow(rmse_data, cmap="Oranges", vmin=0, vmax=1, aspect="auto")
     if not rmse_pass_available:
         for j, metric in enumerate(INJECTOR_METRICS):
             if metric in RMSE_PASS_METRICS:
@@ -213,9 +223,14 @@ def plot_response_grid(grid: dict[str, dict[str, float]],
                    markersize=7, label="exactly blind"),
         plt.Line2D([], [], marker="^", ls="", color=MARKER_RED,
                    markersize=7, label="responds, but not monotonically"),
+        plt.Rectangle((0, 0), 1, 1, facecolor=plt.get_cmap("Blues")(0.62),
+                      label="MAE-calibrated pass"),
+        plt.Rectangle((0, 0), 1, 1, facecolor=plt.get_cmap("Oranges")(0.62),
+                      label="RMSE-calibrated pass (MAE, ND)"),
     ]
-    ax.legend(handles=handles, fontsize=9, ncol=2, loc="upper center",
-              bbox_to_anchor=(0.5, -0.52), frameon=False)
+    ax.legend(handles=handles, fontsize=9, ncol=4, loc="upper center",
+              bbox_to_anchor=(0.5, -0.52), frameon=False,
+              columnspacing=1.4, handletextpad=0.6)
 
     os.makedirs(os.path.dirname(path), exist_ok=True)
     fig.savefig(path, bbox_inches="tight")

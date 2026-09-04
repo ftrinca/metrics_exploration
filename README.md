@@ -2,16 +2,16 @@
 
 Code and results for the experiments in a Master's thesis of the Swiss Joint
 Master of Computer Science, Universities of Bern, Fribourg and Neuchâtel. The
-repository holds the implementations of the 22 evaluation metrics, the three
+repository holds the implementations of the 21 evaluation metrics, the three
 experiments of the thesis, and every report and figure the thesis cites.
 
 Three experiments, run in order:
 
 | | Experiment                              | Question |
 |---|-----------------------------------------|---|
-| 1 | **Metric Behaviour Under Known Damage** | With the amount of damage held constant, do the candidate metrics tell different *kinds* of damage apart? |
+| 1 | **Impact of Synthetic Distortions on Metric Behaviour** | With the amount of damage held constant, do the candidate metrics tell different *kinds* of damage apart? |
 | 2 | **Ranking Imputation Algorithms**       | Applied to real algorithms on real data, do the kept metrics agree on which algorithm is best? |
-| 3 | **CIS - Combined Imputation Score**     | Can metrics that disagree be combined into one number that no kind of damage escapes? |
+| 3 | **CIS - Combined Imputation Score**     | Can metrics that disagree be combined into one number that no kind of distortion escapes? |
 
 Run from scratch, Experiment 1 takes about ten minutes, Experiment 2 several
 hours (its 1,440 algorithm runs dominate the whole pipeline), and Experiment 3
@@ -22,8 +22,24 @@ takes minutes.
 
 ## Install
 
-Requires Python 3.10 or newer; verified on 3.13.2.
-On Windows: `py -m venv .venv`, then `.venv\Scripts\activate`.
+Required:
+
+- Python 3.10 or newer (verified on 3.13.2)
+- a C compiler: on macOS `xcode-select --install`, on Linux `build-essential`
+- on macOS, Homebrew and Armadillo — ImputeGAP's C++ algorithms (CDRec, ROSL,
+  DynaMMo, ST-MVL) are linked against
+  `/opt/homebrew/opt/armadillo/lib/libarmadillo.14.dylib`:
+
+  ```bash
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  # then run the "Next steps" commands the installer prints, and:
+  brew install armadillo
+  ```
+
+  If Homebrew installs a newer major version of Armadillo, symlink its dylib
+  under the name above.
+
+Then:
 
 ```bash
 python3 -m venv .venv
@@ -31,8 +47,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-`imputegap` supplies both the datasets and the imputation algorithms, so
-nothing runs without it.
+On Windows: `py -m venv .venv`, then `.venv\Scripts\activate`.
 
 ---
 
@@ -50,7 +65,7 @@ run from the repository root.
 
 ---
 
-## Experiment 1 — Metric Behaviour Under Known Damage
+## Experiment 1 — Impact of Synthetic Distortions on Metric Behaviour
 
 ```bash
 ./scripts/run_injector.sh
@@ -60,7 +75,7 @@ Eight distortions are applied to the same reconstruction task, each damaging
 the series in a different way, and each is solved numerically to the same mean
 absolute error, so the amount of damage is equal by construction. Every metric
 is then scored against every distortion: a value that varies across the eight
-is a reaction to the kind of damage, and an exact zero is a blind spot. The
+is a reaction to the kind of distortion, and an exact zero is a blind spot. The
 `reactivity` stages do this at one damage level; the `response` stages sweep
 seven levels, so a metric that stays flat over a whole sweep is blind to that
 distortion at any size.
@@ -133,7 +148,7 @@ python -m metric_eval.experiments.algorank.summarize
 Combines three metrics that disagree by design — MAE, WD and MI — into one
 composite score, behind a stability gate that discards constant and diverging
 reconstructions before ranking. Reads what Experiment 2 cached for the ranking
-half and what Experiment 1 cached for the known-damage half, so both need to
+half and what Experiment 1 cached for the distortion half, so both need to
 have run first.
 
 In two stages:
@@ -174,8 +189,8 @@ thesis cites and are kept.
 
 ## The metrics
 
-`metric_eval/core/metrics.py` holds **22 metric functions**, one formula each.
-**20 of them are scored**, and those 20 are what
+`metric_eval/core/metrics.py` holds **21 metric functions**, one formula each.
+**19 of them are scored**, and those 19 are what
 `metric_eval/core/metric_config.py` groups into categories and assigns a
 direction:
 
@@ -185,7 +200,6 @@ direction:
 | Distributional Divergence | WD, JSD, KLD |
 | Temporal Structure | ACF, DTW, sMAE |
 | Statistical Agreement | Pearson, MI, R², TOST, BA, CDT |
-| Domain-specific | PFC |
 
 The two that are never scored are `crps` and `nll`: on a point estimate CRPS
 equals MAE and NLL is a monotone function of RMSE, so on the point estimates
@@ -195,16 +209,16 @@ Each experiment then narrows the set further:
 
 | | Uses | Which |
 |---|---|---|
-| 1 — Known damage | 19 | scored on all 20, reported on the four categories above the domain-specific one |
+| 1 — Synthetic distortions | 19 | all of them |
 | 2 — Algorithm ranking | 8 | two per category: MAE/RMSE, R²/MI, WD/JSD, DTW/sMAE |
 | 3 — CIS | 3 | chosen so that no distortion goes undetected: MAE, WD, MI |
 
-Three of the 20 — ACF, DTW and sMAE — are computed on the whole series,
+Three of the 19 — ACF, DTW and sMAE — are computed on the whole series,
 because masking them would destroy what they measure: the autocorrelation
 structure, the warping path and the power spectrum all need the series intact.
 Every other metric sees the missing positions alone.
 
-Most metrics are lower-is-better; Pearson, MI, R² and PFC are
+Most metrics are lower-is-better; Pearson, MI and R² are
 higher-is-better; TOST is a p-value, so lower; and BA is ranked on the
 absolute mean difference. `METRIC_DIRECTION` is what every ranking and z-score
 in the project reads, so a metric added without an entry there raises an
